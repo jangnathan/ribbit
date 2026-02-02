@@ -7,6 +7,10 @@ enum NODE_TYPE {
 	IF,
 	FOR_LOOP,
 
+	STRING,
+	NUMBER,
+	REFERENCE
+
 	// exp
 	ADD,
 	SUB,
@@ -16,6 +20,7 @@ enum NODE_TYPE {
 
 typedef struct node {
 	enum NODE_TYPE;
+	void *ptr;
 	struct node *nodes;
 } node_t;
 /*

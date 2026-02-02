@@ -1,2 +1,2 @@
 #pragma once
-#define MAX_TOK_LEN 32
+#define MAX_LEX_LEN 32

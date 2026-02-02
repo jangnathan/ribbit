@@ -10,17 +10,21 @@ int main(int argc, int *argv[]) {
 	}
 
 	char *path = argv[1];
+
+	interpreter_t preter;
+	interpreter_init(&preter);
+
 	FILE *file;
 	file = fopen(path, "r");
 	if (file == NULL) {
 		printf("file doesnt exist\n");
 		return 1;
 	}
-
-	node_t ast;
-	load_file(&ast, path);
-	run_ast(&ast);
-
+	uint8_t success = load_file(&preter, file);
 	fclose(file);
+	if (!success) return 1;
+
+	run_ast(&preter);
+
 	return 0;
 }
