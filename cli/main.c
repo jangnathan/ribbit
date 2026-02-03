@@ -11,8 +11,8 @@ int main(int argc, int *argv[]) {
 
 	char *path = argv[1];
 
-	interpreter_t preter;
-	interpreter_init(&preter);
+	ctx_t ctx;
+	ctx_init(&ctx);
 
 	FILE *file;
 	file = fopen(path, "r");
@@ -20,7 +20,7 @@ int main(int argc, int *argv[]) {
 		printf("file doesnt exist\n");
 		return 1;
 	}
-	uint8_t success = load_file(&preter, file);
+	uint8_t success = load_file(&ctx, file);
 	fclose(file);
 	if (!success) return 1;
 
