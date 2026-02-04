@@ -20,12 +20,15 @@ enum NODE_TYPE {
 typedef struct node {
 	enum NODE_TYPE type;
 	void *ptr;
-	struct node *nodes;
-	uint16_t nodes_len;
-	uint16_t nodes_size;
-
+	struct node *next;
 	struct node *parent;
 } node_t;
+
+typedef struct {
+	node_t *array;
+	uint32_t len;
+	uint32_t size;
+} ast;
 /*
 var text = "helo"
 print(text)

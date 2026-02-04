@@ -4,6 +4,6 @@ typedef struct {
 	node_t *ptr;
 } func_t;
 
-void add_func(func_t *funcs, char *name, node_t *ptr);
-void funcs_init(func_t *funcs);
-func_t *get_func(func_t *funcs, char *name);
+void add_func(funcs_t *funcs, char *name, node_t *ptr);
+void funcs_init(funcs_t *funcs);
+func_t *get_func(funcs_t *funcs, char *name);

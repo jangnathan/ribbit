@@ -7,7 +7,6 @@
 enum STATUS {
 	ST_NONE,
 	ST_LEX,
-	ST_LEX_END,
 	ST_END
 };
 
@@ -17,7 +16,7 @@ void ctx_init(ctx_t *ctx) {
 	ctx->preter = &preter;
 	// genesis
 	ctx->temp_node = new_node(&preter);
-	ctx->tk_i = 0;
+	ctx->i = 0;
 	ctx->lex[0] = '\0';
 	ctx->status = ST_NONE;
 }
@@ -76,11 +75,18 @@ bool is_operator(char ch) {
 // Current node -> if it reads something like my_var = 1
 // then it creates a DECLARATION node
 uint8_t process(ctx_t *ctx, char ch) {
-	funcs_t *funcs = ctx->preter->funcs;
+	interpreter_t *preter = ctx->preter;
+	funcs_t *funcs = preter->funcs;
+	ast_t *ast = &preter->ast;
 
 	switch (ctx->status) {
 		case ST_NONE: {
 			if (is_lex(ch)) {
+				node_t *og_node = ctx->temp_node;
+				ctx->temp_node = new_node(ast);
+				ctx->temp_node->parent = og_node;
+				og->next = ctx->temp_node;
+
 				ctx->status = ST_LEX;
 				ctx->i = 0;
 			}
@@ -89,7 +95,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 			if (is_lex(ch)) {
 				ctx->lex[ctx->i] = ch;
 				if (ctx->i > MAX_LEX_LEN) {
-					return user_err("");
+					return user_err("lex is too long");
 				}
 				ctx->i++;
 			} else if (is_whitespace(ch)) {
@@ -98,24 +104,34 @@ uint8_t process(ctx_t *ctx, char ch) {
 			} else if (ch == '(') {
 				ctx->lex[ctx->i] = '\0';
 				goto lex_par;
+			} else if (ch == '=') {
+				ctx->lex[ctx->i] = '\0';
+				goto lex_equal;
 			} else {
 				return user_err("unexpected symbol");
 			}
 		}
-		case ST_LEX_END: {
+		case ST_END: {
 			if (ch == '(') {
 			lex_par:
 				// if its a function
 				func_t *func = get_func(funcs, ctx->lex);
 				if (func == NULL) {
 					return user_err("function doesnt exist");
-				} else {
-					ctx->temp_node->type = CALL;
-					ctx->temp_node->ptr = func;
 				}
+				ctx->temp_node->type = CALL;
+				ctx->temp_node->ptr = func;
+
+				ctx->status = ST_NONE;
+			} else if (ch == '=') {
+			lex_equal:
+				var_t *var = get_var(funcs, ctx->lex);
+				if (var == NULL) {
+					var = new_var(vars, ctx->lex);
+				}
+				ctx->temp_node->type = DECLARATION;
+				ctx->temp_node->ptr = var;
 			}
-		}
-		case ST_END: {
 		}
 	}
 	return 1;
