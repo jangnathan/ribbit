@@ -13,12 +13,27 @@ typedef struct {
 	func_t *funcs;
 } interpreter_t;
 
+enum STATUS {
+	ST_NONE,
+	ST_STRING,
+	ST_LEX,
+	ST_LEX_END,
+	ST_END
+};
+
+// features like loops functions have special structures
+enum FT_STATUS {
+	FT_NONE,
+	FT_CALL
+};
+
 typedef struct {
 	interpreter_t *preter;
 	node_t *temp_node;
 	uint8_t i;
 	char lex[MAX_LEX_LEN];
 	enum STATUS status;
+	enum FT_STATUS ft_status;
 } ctx_t;
 
 void ctx_init(ctx_t *ctx);

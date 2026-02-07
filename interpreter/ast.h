@@ -28,7 +28,7 @@ typedef struct {
 	node_t *array;
 	uint32_t len;
 	uint32_t size;
-} ast;
+} ast_t;
 /*
 var text = "helo"
 print(text)

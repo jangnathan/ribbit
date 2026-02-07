@@ -4,21 +4,16 @@
 
 #include <stdio.h>
 
-enum STATUS {
-	ST_NONE,
-	ST_LEX,
-	ST_END
-};
-
 void ctx_init(ctx_t *ctx) {
 	interpreter_t preter;
 	interpreter_init(&preter);
 	ctx->preter = &preter;
 	// genesis
-	ctx->temp_node = new_node(&preter);
+	ctx->temp_node = new_node(&preter.ast);
 	ctx->i = 0;
 	ctx->lex[0] = '\0';
 	ctx->status = ST_NONE;
+	ctx->ft_status = FT_NONE;
 }
 
 void interpreter_init(interpreter *preter) {
@@ -62,6 +57,13 @@ bool is_operator(char ch) {
 	return false;
 }
 
+node_t *append_child(ast_t *ast, node_t *temp_node) {
+	node_t *new = new_node(ast);
+	new->parent = temp_node;
+	temp_node->next = new;
+	return new;
+}
+
 // it needs to get the instruction
 // it needs to make a tree
 // how to do that?
@@ -74,6 +76,7 @@ bool is_operator(char ch) {
 // Have it be a hash table
 // Current node -> if it reads something like my_var = 1
 // then it creates a DECLARATION node
+
 uint8_t process(ctx_t *ctx, char ch) {
 	interpreter_t *preter = ctx->preter;
 	funcs_t *funcs = preter->funcs;
@@ -81,14 +84,15 @@ uint8_t process(ctx_t *ctx, char ch) {
 
 	switch (ctx->status) {
 		case ST_NONE: {
+			ctx->i = 0;
 			if (is_lex(ch)) {
-				node_t *og_node = ctx->temp_node;
-				ctx->temp_node = new_node(ast);
-				ctx->temp_node->parent = og_node;
-				og->next = ctx->temp_node;
 
 				ctx->status = ST_LEX;
-				ctx->i = 0;
+			} else if (ch == '"') {
+				ctx->temp_node = append_child(ast, ctx->temp_node);
+
+				ctx->temp_node->ptr = new_string();
+				ctx->status = ST_STRING;
 			}
 		}
 		case ST_LEX: {
@@ -111,7 +115,14 @@ uint8_t process(ctx_t *ctx, char ch) {
 				return user_err("unexpected symbol");
 			}
 		}
-		case ST_END: {
+		case ST_STRING: {
+			if (ch == '"') {
+				ctx->status = ST_END;
+			} else {
+				add2string((string_t*)ctx->temp_node->ptr, ch);
+			}
+		}
+		case ST_LEX_END: {
 			if (ch == '(') {
 			lex_par:
 				// if its a function
@@ -119,11 +130,17 @@ uint8_t process(ctx_t *ctx, char ch) {
 				if (func == NULL) {
 					return user_err("function doesnt exist");
 				}
+				ctx->ft_status = FT_CALL;
 				ctx->temp_node->type = CALL;
 				ctx->temp_node->ptr = func;
 
+				ctx->temp_node = append_child(ast, ctx->temp_node);
+
 				ctx->status = ST_NONE;
-			} else if (ch == '=') {
+			}
+		}
+		case ST_END: {
+			if (ch == '=') {
 			lex_equal:
 				var_t *var = get_var(funcs, ctx->lex);
 				if (var == NULL) {
@@ -131,6 +148,21 @@ uint8_t process(ctx_t *ctx, char ch) {
 				}
 				ctx->temp_node->type = DECLARATION;
 				ctx->temp_node->ptr = var;
+
+				ctx->status = ST_NONE;
+			} else if (ch == '+') {
+				node_t *operator = new_node(ast);
+				ctx->temp_node->parent->next = operator;
+				operator->parent = ctx->temp_node->parent;
+				operator->next = ctx->temp_node;
+				ctx->temp_node->parent = operator;
+
+				node_t *og_node = ctx->temp_node;
+				ctx->temp_node = new_node(ast);
+				ctx->temp_node->parent = og_node->parent;
+				og->next = ctx->temp_node;
+
+				ctx->status = ST_NONE;
 			}
 		}
 	}
