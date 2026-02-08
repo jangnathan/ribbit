@@ -27,7 +27,6 @@ typedef struct node {
 	void *ptr;
 	struct node *next;
 	struct node *parent;
-	struct node *child;
 } node_t;
 
 typedef struct {

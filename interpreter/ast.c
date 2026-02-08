@@ -9,7 +9,6 @@ node_t *new_node(ast_t *ast) {
 	}
 
 	node_t *new = &ast->array[ast->len - 1];
-	new->child = 0;
 	new->next = 0;
 	new->type = END;
 

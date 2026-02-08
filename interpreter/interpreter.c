@@ -70,7 +70,7 @@ uint8_t is_operator(char ch) {
 node_t *append_child(ast_t *ast, node_t *temp_node) {
 	node_t *new = new_node(ast);
 	new->parent = temp_node;
-	temp_node->child = new;
+	temp_node->next = new;
 	return new;
 }
 
@@ -171,9 +171,9 @@ uint8_t process(ctx_t *ctx, char ch) {
 				ctx->status = ST_NONE;
 			} else if (ch == '+') {
 				node_t *operator = new_node(ast);
-				ctx->temp_node->parent->child = operator;
+				ctx->temp_node->parent->next = operator;
 				operator->parent = ctx->temp_node->parent;
-				operator->child = ctx->temp_node;
+				operator->next = ctx->temp_node;
 				ctx->temp_node->parent = operator;
 
 				node_t *og_node = ctx->temp_node;
@@ -190,6 +190,8 @@ uint8_t process(ctx_t *ctx, char ch) {
 				ctx->temp_node = new_node(ast);
 				ctx->temp_node->parent = og_node->parent->parent;
 				og_node->next = ctx->temp_node;
+
+				ctx->status = ST_NONE;
 			}
 			break;
 		}
@@ -237,11 +239,7 @@ uint8_t print_ast(ast_t *ast) {
 			}
 		}
 
-		if (temp_node->child != 0) {
-			temp_node = temp_node->child;
-		} else if (temp_node->next != 0) {
-			temp_node = temp_node->next;
-		}
+		temp_node = temp_node->next;
 	}
 	return 1;
 }
