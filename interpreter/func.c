@@ -1,10 +1,12 @@
 #include "func.h"
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 
-void add_func(funsc_t *funcs, char *name, node_t *ptr) {
-	func_t func;
-	func->name = name;
+void add_func(funcs_t *funcs, char *name, node_t *ptr) {
+	func_t *func = &funcs->array[funcs->len];
+	strcpy(func->name, name);
 	func->ptr = ptr;
-	funcs->array[funcs->len] = func;
 
 	funcs->len++;
 	if (funcs->len > funcs->size) {
@@ -23,15 +25,15 @@ void funcs_init(funcs_t *funcs) {
 
 func_t *get_func(funcs_t *funcs, char *name) {
 	uint8_t found = 0;
-	uint8_t i = 0;
+	uint16_t i = 0;
 	while (!found && i < funcs->len) {
 		if (strcmp(funcs->array[i].name, name) == 0) {
-			found = 0;
+			found = 1;
 		}
 		i++;
 	}
 	if (found) {
-		return funcs->array[i];
+		return &funcs->array[i - 1];
 	} else {
 		return 0;
 	}

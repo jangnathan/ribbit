@@ -1,66 +1,76 @@
 #include "interpreter.h"
 #include "constants.h"
 #include "user_error.h"
+#include "string.h"
 
 #include <stdio.h>
 
+void interpreter_init(interpreter_t *preter) {
+	#ifdef DEBUG
+	printf("init interpreter start\n");
+	#endif
+
+	preter->ast.len = 0;
+	preter->ast.size = 16;
+	preter->ast.array = malloc(sizeof(node_t) * preter->ast.size);	
+
+	funcs_init(&preter->funcs);
+}
+
 void ctx_init(ctx_t *ctx) {
-	interpreter_t preter;
-	interpreter_init(&preter);
-	ctx->preter = &preter;
+	#ifdef DEBUG
+	printf("init ctx start\n");
+	#endif
+
 	// genesis
-	ctx->temp_node = new_node(&preter.ast);
+	ctx->temp_node = new_node(&ctx->preter->ast);
+	ctx->temp_node->type = BLOCK;
 	ctx->i = 0;
 	ctx->lex[0] = '\0';
 	ctx->status = ST_NONE;
-	ctx->ft_status = FT_NONE;
+
+	#ifdef DEBUG
+	printf("init ctx end\n");
+	#endif
 }
 
-void interpreter_init(interpreter *preter) {
-	preter->ast_len = 0;
-	preter->ast_size = 16;
-	preter->ast_array = malloc(sizeof(node_t) * preter->size);	
-
-	funcs_init(preter->funcs);
-}
-
-bool is_whitespace(char ch) {
+uint8_t is_whitespace(char ch) {
 	if (ch == '\n' || ch == ' ' || ch == '\t') {
-		return true;
+		return 1;
 	}
-	return false;
+	return 0;
 }
-bool is_lex(char ch) {
+uint8_t is_lex(char ch) {
 	uint8_t chn = (uint8_t)ch;
-	if (chn >= 48 && chn <= 57) return true;
-	if (chn >= 64 && chn <= 90) return true;
-	if (chn >= 97 && chn <= 122) return true;
-	if (ch == '_') return true;
-	return false;
+	if (chn >= 48 && chn <= 57) return 1;
+	if (chn >= 64 && chn <= 90) return 1;
+	if (chn >= 97 && chn <= 122) return 1;
+	if (ch == '_') return 1;
+	return 0;
 }
-bool is_num(char ch) {
+uint8_t is_num(char ch) {
 	uint8_t chn = (uint8_t)ch;
 	if (chn >= 48 && chn <= 57) {
-		return true;
+		return 1;
 	}
-	return false;
+	return 0;
 }
 uint8_t char2digit(char ch) {
 	uint8_t chn = (uint8_t)ch;
 	return chn - 48;
 }
-bool is_operator(char ch) {
+uint8_t is_operator(char ch) {
 	if (ch=='+'||ch=='-'||ch=='/'||ch=='*'||
 		ch=='<'||ch=='>') {
-		return true;
+		return 1;
 	}
-	return false;
+	return 0;
 }
 
 node_t *append_child(ast_t *ast, node_t *temp_node) {
 	node_t *new = new_node(ast);
 	new->parent = temp_node;
-	temp_node->next = new;
+	temp_node->child = new;
 	return new;
 }
 
@@ -79,24 +89,31 @@ node_t *append_child(ast_t *ast, node_t *temp_node) {
 
 uint8_t process(ctx_t *ctx, char ch) {
 	interpreter_t *preter = ctx->preter;
-	funcs_t *funcs = preter->funcs;
+	funcs_t *funcs = &preter->funcs;
+	vars_t *vars = &preter->vars;
 	ast_t *ast = &preter->ast;
+
+#ifdef DEBUG
+	printf("%c", ch);
+	fflush(stdout);
+#endif
 
 	switch (ctx->status) {
 		case ST_NONE: {
 			ctx->i = 0;
 			if (is_lex(ch)) {
-
 				ctx->status = ST_LEX;
+				goto lex;
 			} else if (ch == '"') {
-				ctx->temp_node = append_child(ast, ctx->temp_node);
-
+				ctx->temp_node->type = STRING;
 				ctx->temp_node->ptr = new_string();
 				ctx->status = ST_STRING;
 			}
+			break;
 		}
 		case ST_LEX: {
 			if (is_lex(ch)) {
+			lex:
 				ctx->lex[ctx->i] = ch;
 				if (ctx->i > MAX_LEX_LEN) {
 					return user_err("lex is too long");
@@ -114,6 +131,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 			} else {
 				return user_err("unexpected symbol");
 			}
+			break;
 		}
 		case ST_STRING: {
 			if (ch == '"') {
@@ -121,49 +139,59 @@ uint8_t process(ctx_t *ctx, char ch) {
 			} else {
 				add2string((string_t*)ctx->temp_node->ptr, ch);
 			}
+			break;
 		}
 		case ST_LEX_END: {
 			if (ch == '(') {
 			lex_par:
+				ctx->temp_node->type = CALL;
+
 				// if its a function
 				func_t *func = get_func(funcs, ctx->lex);
-				if (func == NULL) {
+				if (func == 0) {
 					return user_err("function doesnt exist");
 				}
-				ctx->ft_status = FT_CALL;
-				ctx->temp_node->type = CALL;
 				ctx->temp_node->ptr = func;
-
 				ctx->temp_node = append_child(ast, ctx->temp_node);
 
 				ctx->status = ST_NONE;
 			}
+			break;
 		}
 		case ST_END: {
 			if (ch == '=') {
 			lex_equal:
-				var_t *var = get_var(funcs, ctx->lex);
+				ctx->temp_node->type = DECLARATION;
+				var_t *var = get_var(vars, ctx->lex);
 				if (var == NULL) {
 					var = new_var(vars, ctx->lex);
 				}
-				ctx->temp_node->type = DECLARATION;
 				ctx->temp_node->ptr = var;
 
 				ctx->status = ST_NONE;
 			} else if (ch == '+') {
 				node_t *operator = new_node(ast);
-				ctx->temp_node->parent->next = operator;
+				ctx->temp_node->parent->child = operator;
 				operator->parent = ctx->temp_node->parent;
-				operator->next = ctx->temp_node;
+				operator->child = ctx->temp_node;
 				ctx->temp_node->parent = operator;
 
 				node_t *og_node = ctx->temp_node;
 				ctx->temp_node = new_node(ast);
-				ctx->temp_node->parent = og_node->parent;
-				og->next = ctx->temp_node;
+				ctx->temp_node->parent = operator;
+				og_node->next = ctx->temp_node;
 
 				ctx->status = ST_NONE;
+			} else if (ch == ')') {
+				if (ctx->temp_node->parent->type != CALL) {
+					return user_err("unexpected ')'");
+				}
+				node_t *og_node = ctx->temp_node;
+				ctx->temp_node = new_node(ast);
+				ctx->temp_node->parent = og_node->parent->parent;
+				og_node->next = ctx->temp_node;
 			}
+			break;
 		}
 	}
 	return 1;
@@ -177,7 +205,45 @@ uint8_t load_file(ctx_t *ctx, FILE *file) {
 	return 1;
 }
 
-uint8_t run_ast(node_t *ast) {
+uint8_t run_ast(ast_t *ast) {
+	return 1;
+}
+
+uint8_t print_ast(ast_t *ast) {
+	printf("-- AST STATS --\n");
+	node_t *temp_node = &ast->array[0];
+	printf("ast len: %d\n", ast->len);
+	printf("-- TREE --\n");
+	while (temp_node->type != END) {
+		switch (temp_node->type) {
+			case BLOCK: {
+				printf("BLOCK\n");
+				break;
+			}
+			case CALL: {
+				func_t *func = temp_node->ptr;
+				printf("%s\n", func->name);
+				break;
+			}
+			case STRING: {
+				printf("STRING\n");
+				break;
+			}
+			case END: {
+				printf("END\n");
+				break;
+			}
+			default: {
+			}
+		}
+
+		if (temp_node->child != 0) {
+			temp_node = temp_node->child;
+		} else if (temp_node->next != 0) {
+			temp_node = temp_node->next;
+		}
+	}
+	return 1;
 }
 
 // where would it even add code anyway?

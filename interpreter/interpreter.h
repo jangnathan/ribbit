@@ -1,16 +1,17 @@
 #pragma once
-#include "funcs.h"
+#include "func.h"
 #include "ast.h"
+#include "var.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <stdint.h>
 
 typedef struct {
-	node_t *ast_array;
-	uint32_t ast_len;
-	uint32_t ast_size;
+	ast_t ast;
 
-	func_t *funcs;
+	funcs_t funcs;
+	vars_t vars;
 } interpreter_t;
 
 enum STATUS {
@@ -21,21 +22,16 @@ enum STATUS {
 	ST_END
 };
 
-// features like loops functions have special structures
-enum FT_STATUS {
-	FT_NONE,
-	FT_CALL
-};
-
 typedef struct {
 	interpreter_t *preter;
 	node_t *temp_node;
 	uint8_t i;
 	char lex[MAX_LEX_LEN];
 	enum STATUS status;
-	enum FT_STATUS ft_status;
 } ctx_t;
 
+void interpreter_init(interpreter_t *preter);
 void ctx_init(ctx_t *ctx);
-uint8_t load_file(node_t *node, char *path);
-uint8_t run_ast(node_t *ast);
+uint8_t load_file(ctx_t *ctx, FILE *file);
+uint8_t run_ast(ast_t *ast);
+uint8_t print_ast(ast_t *ast);

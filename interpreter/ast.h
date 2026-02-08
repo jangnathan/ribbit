@@ -1,4 +1,6 @@
 #pragma once
+#include <stdint.h>
+
 enum NODE_TYPE {
 	BLOCK,
 	DECLARATION,
@@ -8,13 +10,16 @@ enum NODE_TYPE {
 
 	STRING,
 	NUMBER,
-	REFERENCE
+	REFERENCE,
 
 	// exp
 	ADD,
 	SUB,
 	EQUAL,
-	NOT_EQUAL
+	NOT_EQUAL,
+	PARENTHESIS,
+
+	END
 };
 
 typedef struct node {
@@ -22,6 +27,7 @@ typedef struct node {
 	void *ptr;
 	struct node *next;
 	struct node *parent;
+	struct node *child;
 } node_t;
 
 typedef struct {
@@ -56,5 +62,5 @@ declare and print have same expressions
 IF also has an expression
 */
 
-node_t *new_node(interpreter *preter);
-node_t *new_child(interpreter *preter, node_t *parent);
+node_t *new_node(ast_t *ast);
+node_t *new_child(ast_t *ast, node_t *parent);

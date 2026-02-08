@@ -1,15 +1,19 @@
 #include "var.h"
 
+#include <stdlib.h>
+#include <string.h>
+
 var_t *new_var(vars_t *vars, char *name) {
 	var_t var;
-	var.name = name;
-	funcs->array[funcs->len] = func;
+	strcpy(var.name, name);
+	vars->array[vars->len] = var;
 
 	vars->len++;
 	if (vars->len > vars->size) {
 		vars->size *= 2;
 		vars->array = realloc(vars->array, sizeof(var_t) * vars->size);
 	}
+	return &vars->array[vars->len - 1];
 }
 void vars_init(vars_t *vars) {
 	vars->len = 0;
@@ -26,7 +30,7 @@ var_t *get_var(vars_t *vars, char *name) {
 		i++;
 	}
 	if (found) {
-		return vars->array[i];
+		return &vars->array[i];
 	} else {
 		return 0;
 	}
