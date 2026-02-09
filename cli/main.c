@@ -1,4 +1,5 @@
 #include "../interpreter/interpreter.h"
+#include "../interpreter/runtime.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,11 +13,10 @@ int main(int argc, char *argv[]) {
 	char *command = argv[1];
 
 	if (argv[2] == NULL) {
-		printf("needs two arguments");
+		printf("needs two arguments\n");
 		return 1;
 	}
 	char *path = argv[2];
-	printf("%s\n", path);
 
 	interpreter_t preter;
 	interpreter_init(&preter);
@@ -32,9 +32,7 @@ int main(int argc, char *argv[]) {
 	}
 	uint8_t success = load_file(&ctx, file);
 	fclose(file);
-	printf("File loaded\n");
 	if (!success) return 1;
-	printf("AST WORKS\n");
 
 	if (strcmp(command, "run") == 0) {
 		run_ast(&ctx.preter->ast);
