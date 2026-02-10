@@ -183,15 +183,18 @@ uint8_t process(ctx_t *ctx, char ch) {
 
 				ctx->status = ST_NONE;
 			} else if (ch == ')') {
-				if (ctx->temp_node->parent->type != CALL) {
-					return user_err("unexpected ')'");
-				}
-				node_t *og_node = ctx->temp_node;
-				ctx->temp_node = new_node(ast);
-				ctx->temp_node->parent = og_node->parent->parent;
-				og_node->next = ctx->temp_node;
+				if (ctx->temp_node->parent->type == CALL) {
+					ctx->temp_node->back = 1;
 
-				ctx->status = ST_NONE;
+					node_t *og_node = ctx->temp_node;
+					ctx->temp_node = new_node(ast);
+					ctx->temp_node->parent = og_node->parent->parent;
+					og_node->next = ctx->temp_node;
+
+					ctx->status = ST_NONE;
+				}
+
+				return user_err("unexpected ')'");
 			}
 			break;
 		}
