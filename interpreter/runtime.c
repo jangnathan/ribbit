@@ -135,4 +135,15 @@ uint8_t print_ast(ast_t *ast) {
 	return 1;
 }
 
-
+uint8_t print_chain(ast_t *ast) {
+	node_t *temp_node = &ast->array[0];
+	while (temp_node->type != END) {
+		log_nodetype(temp_node->type);
+		printf("-->");
+		if (temp_node->back) {
+			printf("BACK |\n");
+		}
+		temp_node = temp_node->next;
+	}
+	return 1;
+}

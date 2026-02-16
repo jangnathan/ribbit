@@ -21,7 +21,7 @@ enum NODE_TYPE {
 	NOT_EQUAL,
 	PARENTHESIS // just to group things together
 };
-void log_node_type(enum NODE_TYPE type);
+void log_nodetype(enum NODE_TYPE type);
 
 typedef struct node {
 	enum NODE_TYPE type;

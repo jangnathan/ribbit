@@ -38,6 +38,8 @@ int main(int argc, char *argv[]) {
 		run_ast(&ctx.preter->ast);
 	} else if (strcmp(command, "print") == 0) {
 		print_ast(&ctx.preter->ast);
+	} else if (strcmp(command, "chain") == 0) {
+		print_chain(&ctx.preter->ast);
 	}
 
 	return 0;

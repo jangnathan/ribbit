@@ -17,9 +17,8 @@ char *nodetype_string[] = {
 	"NOT_EQUAL",
 	"PARENTHESIS"
 };
-void log_node_type(enum NODE_TYPE type) {
-	printf("HELLO\n");
-	printf("HELLO %d\n", (uint8_t)type);
+void log_nodetype(enum NODE_TYPE type) {
+	printf("%s\n", nodetype_string[(uint8_t)type]);
 }
 
 node_t *new_node(ast_t *ast) {
