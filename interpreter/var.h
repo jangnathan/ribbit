@@ -1,17 +1,12 @@
 #pragma once
 #include "constants.h"
+#include "value.h"
 
 #include <stdint.h>
 
-enum DATATYPE {
-	T_STRING,
-	T_NUMBER
-};
-
 typedef struct {
 	char name[MAX_LEX_LEN];
-	enum DATATYPE datatype;
-	void *ptr;
+	value_t value;
 } var_t;
 
 typedef struct {

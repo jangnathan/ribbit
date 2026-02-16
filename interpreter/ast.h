@@ -11,9 +11,7 @@ enum NODE_TYPE {
 	FOR_LOOP,
 
 	// literals
-	STRING,
-	NUMBER,
-
+	LITERAL,
 	REFERENCE,
 
 	// exp
@@ -23,10 +21,7 @@ enum NODE_TYPE {
 	NOT_EQUAL,
 	PARENTHESIS // just to group things together
 };
-// checking type vs recursing one more node wasting memory
-// instead of having a node to denote that it should be evaluated e.g. exp node / parenthesis
-
-uint8_t should_eval(enum NODE_TYPE type);
+void log_node_type(enum NODE_TYPE type);
 
 typedef struct node {
 	enum NODE_TYPE type;
@@ -38,11 +33,6 @@ typedef struct node {
 // you do go back??
 // how do you know if something should be calculated first?
 // if its math..., if its math then you evaluate
-
-typedef struct {
-	node_t *array[MAX_QUEUE_LEN];
-	uint8_t len;
-} node_queue_t;
 
 typedef struct {
 	node_t *array;

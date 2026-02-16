@@ -1,7 +1,7 @@
 #include "interpreter.h"
 #include "constants.h"
 #include "user_error.h"
-#include "string.h"
+#include "value.h"
 
 #include <stdio.h>
 
@@ -14,7 +14,9 @@ void interpreter_init(interpreter_t *preter) {
 	preter->ast.size = 16;
 	preter->ast.array = malloc(sizeof(node_t) * preter->ast.size);	
 
+	values_init(&preter->values);
 	funcs_init(&preter->funcs);
+	strings_init(&preter->strings);
 }
 
 void ctx_init(ctx_t *ctx) {
@@ -91,6 +93,8 @@ uint8_t process(ctx_t *ctx, char ch) {
 	interpreter_t *preter = ctx->preter;
 	funcs_t *funcs = &preter->funcs;
 	vars_t *vars = &preter->vars;
+	values_t *values = &preter->values;
+	strings_t *strings = &preter->strings;
 	ast_t *ast = &preter->ast;
 
 #ifdef DEBUG
@@ -105,9 +109,13 @@ uint8_t process(ctx_t *ctx, char ch) {
 				ctx->status = ST_LEX;
 				goto lex;
 			} else if (ch == '"') {
-				ctx->temp_node->type = STRING;
-				ctx->temp_node->ptr = new_string();
 				ctx->status = ST_STRING;
+
+				ctx->temp_node->type = LITERAL;
+				value_t* value = new_value(values);
+				value->type = STRING;
+				value->ptr = new_string(strings);
+				ctx->temp_node->ptr = value;
 			}
 			break;
 		}
@@ -137,7 +145,8 @@ uint8_t process(ctx_t *ctx, char ch) {
 			if (ch == '"') {
 				ctx->status = ST_END;
 			} else {
-				add2string((string_t*)ctx->temp_node->ptr, ch);
+				value_t *value = ctx->temp_node->ptr;
+				add2string((string_t*)value->ptr, ch);
 			}
 			break;
 		}
@@ -152,7 +161,16 @@ uint8_t process(ctx_t *ctx, char ch) {
 					return user_err("function doesnt exist");
 				}
 				ctx->temp_node->ptr = func;
-				ctx->temp_node = append_child(ast, ctx->temp_node);
+				if (func->n_param > 0) {
+					if (func->n_param == 1) {
+						ctx->temp_node = append_child(ast, ctx->temp_node);
+					} else {
+						ctx->temp_node = append_child(ast, ctx->temp_node);
+						ctx->temp_node->type = PARENTHESIS;
+
+						ctx->temp_node = append_child(ast, ctx->temp_node);
+					}
+				}
 
 				ctx->status = ST_NONE;
 			}
@@ -192,6 +210,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 					og_node->next = ctx->temp_node;
 
 					ctx->status = ST_NONE;
+					break;
 				}
 
 				return user_err("unexpected ')'");

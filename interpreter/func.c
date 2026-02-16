@@ -3,16 +3,22 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-void add_func(funcs_t *funcs, char *name, node_t *ptr) {
+void func_add_param(func_t *func, char *name) {
+	strcpy(func->params[func->n_param].name, name);
+	func->n_param++;
+}
+
+func_t *new_func(funcs_t *funcs, char *name) {
 	func_t *func = &funcs->array[funcs->len];
 	strcpy(func->name, name);
-	func->ptr = ptr;
+	func->n_param = 0;
 
 	funcs->len++;
 	if (funcs->len > funcs->size) {
 		funcs->size *= 2;
 		funcs->array = realloc(funcs->array, sizeof(func_t) * funcs->size);
 	}
+	return func;
 }
 
 void funcs_init(funcs_t *funcs) {
@@ -20,7 +26,8 @@ void funcs_init(funcs_t *funcs) {
 	funcs->size = 4;
 	funcs->array = malloc(sizeof(func_t) * funcs->size);
 
-	add_func(funcs, "print", 0);
+	func_t *print = new_func(funcs, "print");
+	func_add_param(print, "content");
 }
 
 func_t *get_func(funcs_t *funcs, char *name) {

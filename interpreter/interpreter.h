@@ -2,6 +2,7 @@
 #include "func.h"
 #include "ast.h"
 #include "var.h"
+#include "string.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -12,6 +13,8 @@ typedef struct {
 
 	funcs_t funcs;
 	vars_t vars;
+	values_t values;
+	strings_t strings;
 } interpreter_t;
 
 enum STATUS {

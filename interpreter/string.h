@@ -7,5 +7,12 @@ typedef struct {
 	uint16_t size;
 } string_t;
 
-string_t *new_string();
+typedef struct {
+	string_t *array;
+	uint16_t len;
+	uint16_t size;
+} strings_t;
+
+void strings_init(strings_t *strings);
+string_t *new_string(strings_t *strings);
 void add2string(string_t *str, char ch);
