@@ -22,13 +22,14 @@ void log_nodetype(enum NODE_TYPE type) {
 }
 
 node_t *new_node(ast_t *ast) {
-	node_t *new = &ast->array[ast->len];
-
-	ast->len++;
 	if (ast->len > ast->size) {
 		ast->size *= 2;
 		ast->array = realloc(ast->array, sizeof(node_t) * ast->size);
 	}
+
+	node_t *new = &ast->array[ast->len];
+	ast->len++;
+
 	new->next = 0;
 	new->back = 0;
 	new->type = END;
