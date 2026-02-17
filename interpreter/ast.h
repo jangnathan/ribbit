@@ -25,7 +25,7 @@ void log_nodetype(enum NODE_TYPE type);
 
 typedef struct node {
 	enum NODE_TYPE type;
-	void *ptr;
+	uint32_t ptr;
 	struct node *next;
 	struct node *parent;
 	uint8_t back; // bool saying that it exists the current exp
@@ -66,5 +66,4 @@ declare and print have same expressions
 IF also has an expression
 */
 
-node_t *new_node(ast_t *ast);
-node_t *new_child(ast_t *ast, node_t *parent);
+uint32_t new_node(ast_t *ast);

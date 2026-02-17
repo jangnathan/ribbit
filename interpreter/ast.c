@@ -21,8 +21,8 @@ void log_nodetype(enum NODE_TYPE type) {
 	printf("%s\n", nodetype_string[(uint8_t)type]);
 }
 
-node_t *new_node(ast_t *ast) {
-	if (ast->len > ast->size) {
+uint32_t new_node(ast_t *ast) {
+	if (ast->len >= ast->size) {
 		ast->size *= 2;
 		ast->array = realloc(ast->array, sizeof(node_t) * ast->size);
 	}
@@ -34,7 +34,7 @@ node_t *new_node(ast_t *ast) {
 	new->back = 0;
 	new->type = END;
 
-	return new;
+	return ast->len - 1;
 }
 
 // should it have pointers to the next node instead?

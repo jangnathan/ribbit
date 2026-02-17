@@ -14,5 +14,5 @@ typedef struct {
 } strings_t;
 
 void strings_init(strings_t *strings);
-string_t *new_string(strings_t *strings);
+uint16_t new_string(strings_t *strings);
 void add2string(string_t *str, char ch);

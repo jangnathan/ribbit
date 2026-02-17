@@ -8,8 +8,8 @@ void func_add_param(func_t *func, char *name) {
 	func->n_param++;
 }
 
-func_t *new_func(funcs_t *funcs, char *name) {
-	if (funcs->len > funcs->size) {
+uint16_t new_func(funcs_t *funcs, char *name) {
+	if (funcs->len >= funcs->size) {
 		funcs->size *= 2;
 		funcs->array = realloc(funcs->array, sizeof(func_t) * funcs->size);
 	}
@@ -19,7 +19,7 @@ func_t *new_func(funcs_t *funcs, char *name) {
 
 	strcpy(func->name, name);
 	func->n_param = 0;
-	return func;
+	return funcs->len - 1;
 }
 
 void funcs_init(funcs_t *funcs) {
@@ -27,11 +27,11 @@ void funcs_init(funcs_t *funcs) {
 	funcs->size = 4;
 	funcs->array = malloc(sizeof(func_t) * funcs->size);
 
-	func_t *print = new_func(funcs, "print");
+	func_t *print = &funcs->array[new_func(funcs, "print")];
 	func_add_param(print, "content");
 }
 
-func_t *get_func(funcs_t *funcs, char *name) {
+int32_t get_func(funcs_t *funcs, char *name) {
 	uint8_t found = 0;
 	uint16_t i = 0;
 	while (!found && i < funcs->len) {
@@ -41,8 +41,8 @@ func_t *get_func(funcs_t *funcs, char *name) {
 		i++;
 	}
 	if (found) {
-		return &funcs->array[i - 1];
+		return i - 1;
 	} else {
-		return 0;
+		return -1;
 	}
 }

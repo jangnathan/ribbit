@@ -7,12 +7,14 @@ void values_init(values_t *values) {
 	values->size = 4;
 	values->array = malloc(sizeof(value_t) * values->size);
 }
-value_t *new_value(values_t *values) {
-	values->len++;
-	if (values->len > values->size) {
+uint16_t new_value(values_t *values) {
+	if (values->len >= values->size) {
 		values->size *= 2;
 		values->array = realloc(values->array, sizeof(value_t) * values->size);
 	}
 
-	return &values->array[values->len-1];
+	value_t *value = &values->array[values->len];
+	values->len++;
+
+	return values->len - 1;
 }

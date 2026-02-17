@@ -1,13 +1,6 @@
 #include "runtime.h"
 #include <string.h>
 
-void run_func(func_t *func) {
-	if (strcmp(func->name, "print") == 0) {
-		string_t *content = func->params[0].value.ptr;
-		printf("%s\n", content->array);
-	}
-}
-
 // decide temp values for evaluation in stack
 // so no need for inefficient free and malloc
 
@@ -53,17 +46,23 @@ uint8_t eval_exp(node_t *node) {
 	return 1;
 }
 
-uint8_t handle_call(node_t *temp_node) {
-	func_t *func = temp_node->ptr;
+uint8_t handle_call(interpreter_t *preter, node_t *temp_node) {
+	func_t *func = &preter->funcs.array[temp_node->ptr];
 
-	func->params[0].value = *(value_t*)temp_node->next->ptr;
+	// first param
+	func->params[0].value = preter->values.array[temp_node->next->ptr];
 
-	run_func(func);
+	if (strcmp(func->name, "print") == 0) {
+		value_t value = func->params[0].value;
+		string_t content = preter->strings.array[value.ptr];
+		printf("%s\n", content.array);
+	}
 
 	return 1;
 }
 
-uint8_t run_ast(ast_t *ast) {
+uint8_t run(interpreter_t *preter) {
+	ast_t *ast = &preter->ast;
 	node_t *temp_node = &ast->array[0];
 	while (temp_node->type != END) {
 		switch (temp_node->type) {
@@ -72,7 +71,7 @@ uint8_t run_ast(ast_t *ast) {
 				break;
 			}
 			case CALL: {
-				handle_call(temp_node);
+				handle_call(preter, temp_node);
 				break;
 			}
 			case END: {
@@ -88,8 +87,22 @@ uint8_t run_ast(ast_t *ast) {
 	return 1;
 }
 
-uint8_t print_ast(ast_t *ast) {
+void print_literal(interpreter_t *preter, value_t *value) {
+	switch (value->type) {
+		case STRING: {
+			string_t str = preter->strings.array[value->ptr];
+			printf("STRING: %s\n", str.array);
+			break;
+		}
+		default: {
+		}
+	}
+	printf("LITERAL\n");
+
+}
+uint8_t print(interpreter_t *preter) {
 	printf("-- AST STATS --\n");
+	ast_t *ast = &preter->ast;
 	node_t *temp_node = &ast->array[0];
 	printf("ast len: %d\n", ast->len);
 	printf("-- TREE --\n");
@@ -104,15 +117,16 @@ uint8_t print_ast(ast_t *ast) {
 				break;
 			}
 			case CALL: {
-				func_t *func = temp_node->ptr;
-				printf("%s\n", func->name);
+				func_t func = preter->funcs.array[temp_node->ptr];
+				printf("%s\n", func.name);
 				break;
 			}
 			case PARENTHESIS: {
 				printf("PARENTHESIS\n");
 			}
 			case LITERAL: {
-				printf("LITERAL\n");
+				value_t value = preter->values.array[temp_node->ptr];
+				print_literal(preter, &value);
 				break;
 			}
 			case END: {
@@ -135,7 +149,8 @@ uint8_t print_ast(ast_t *ast) {
 	return 1;
 }
 
-uint8_t print_chain(ast_t *ast) {
+uint8_t print_chain(interpreter_t *preter) {
+	ast_t *ast = &preter->ast;
 	node_t *temp_node = &ast->array[0];
 	while (temp_node->type != END) {
 		log_nodetype(temp_node->type);

@@ -23,6 +23,6 @@ typedef struct {
 } params_t;
 
 void func_add_param(func_t *func, char *name);
-void add_func(funcs_t *funcs, char *name, node_t *ptr);
+uint16_t new_func(funcs_t *funcs, char *name);
 void funcs_init(funcs_t *funcs);
-func_t *get_func(funcs_t *funcs, char *name);
+int32_t get_func(funcs_t *funcs, char *name);

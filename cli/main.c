@@ -35,11 +35,11 @@ int main(int argc, char *argv[]) {
 	if (!success) return 1;
 
 	if (strcmp(command, "run") == 0) {
-		run_ast(&ctx.preter->ast);
+		run(&preter);
 	} else if (strcmp(command, "print") == 0) {
-		print_ast(&ctx.preter->ast);
+		print(&preter);
 	} else if (strcmp(command, "chain") == 0) {
-		print_chain(&ctx.preter->ast);
+		print_chain(&preter);
 	}
 
 	return 0;

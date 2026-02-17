@@ -25,7 +25,8 @@ void ctx_init(ctx_t *ctx) {
 	#endif
 
 	// genesis
-	ctx->temp_node = new_node(&ctx->preter->ast);
+	new_node(&ctx->preter->ast);
+	ctx->temp_node = &ctx->preter->ast.array[0];
 	ctx->temp_node->type = BLOCK;
 	ctx->i = 0;
 	ctx->lex[0] = '\0';
@@ -70,7 +71,7 @@ uint8_t is_operator(char ch) {
 }
 
 node_t *append_child(ast_t *ast, node_t *temp_node) {
-	node_t *new = new_node(ast);
+	node_t *new = &ast->array[new_node(ast)];
 	new->parent = temp_node;
 	temp_node->next = new;
 	return new;
@@ -112,10 +113,13 @@ uint8_t process(ctx_t *ctx, char ch) {
 				ctx->status = ST_STRING;
 
 				ctx->temp_node->type = LITERAL;
-				value_t* value = new_value(values);
+				uint16_t id = new_value(values);
+				value_t *value = &values->array[id];
 				value->type = STRING;
-				value->ptr = new_string(strings);
-				ctx->temp_node->ptr = value;
+				ctx->temp_node->ptr = id;
+
+				id = new_string(strings);
+				value->ptr = id;
 			}
 			break;
 		}
@@ -145,8 +149,9 @@ uint8_t process(ctx_t *ctx, char ch) {
 			if (ch == '"') {
 				ctx->status = ST_END;
 			} else {
-				value_t *value = ctx->temp_node->ptr;
-				add2string((string_t*)value->ptr, ch);
+				value_t value = values->array[ctx->temp_node->ptr];
+				string_t *str = &strings->array[value.ptr];
+				add2string(str, ch);
 			}
 			break;
 		}
@@ -156,11 +161,12 @@ uint8_t process(ctx_t *ctx, char ch) {
 				ctx->temp_node->type = CALL;
 
 				// if its a function
-				func_t *func = get_func(funcs, ctx->lex);
-				if (func == 0) {
+				int32_t func_id = get_func(funcs, ctx->lex);
+				func_t *func = &funcs->array[func_id];
+				if (func_id == -1) {
 					return user_err("function doesnt exist");
 				}
-				ctx->temp_node->ptr = func;
+				ctx->temp_node->ptr = func_id;
 				if (func->n_param > 0) {
 					if (func->n_param == 1) {
 						ctx->temp_node = append_child(ast, ctx->temp_node);
@@ -180,22 +186,22 @@ uint8_t process(ctx_t *ctx, char ch) {
 			if (ch == '=') {
 			lex_equal:
 				ctx->temp_node->type = DECLARATION;
-				var_t *var = get_var(vars, ctx->lex);
-				if (var == NULL) {
+				int32_t var = get_var(vars, ctx->lex);
+				if (var == -1) {
 					var = new_var(vars, ctx->lex);
 				}
 				ctx->temp_node->ptr = var;
 
 				ctx->status = ST_NONE;
 			} else if (ch == '+') {
-				node_t *operator = new_node(ast);
+				node_t *operator = &ast->array[new_node(ast)];
 				ctx->temp_node->parent->next = operator;
 				operator->parent = ctx->temp_node->parent;
 				operator->next = ctx->temp_node;
 				ctx->temp_node->parent = operator;
 
 				node_t *og_node = ctx->temp_node;
-				ctx->temp_node = new_node(ast);
+				ctx->temp_node = &ast->array[new_node(ast)];
 				ctx->temp_node->parent = operator;
 				og_node->next = ctx->temp_node;
 
@@ -205,7 +211,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 					ctx->temp_node->back = 1;
 
 					node_t *og_node = ctx->temp_node;
-					ctx->temp_node = new_node(ast);
+					ctx->temp_node = &ast->array[new_node(ast)];
 					ctx->temp_node->parent = og_node->parent->parent;
 					og_node->next = ctx->temp_node;
 

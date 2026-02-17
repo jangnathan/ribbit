@@ -11,10 +11,10 @@ typedef struct {
 
 typedef struct {
 	var_t *array;
-	uint32_t len;
-	uint32_t size;
+	uint16_t len;
+	uint16_t size;
 } vars_t;
 
-var_t *new_var(vars_t *vars, char *name);
+uint16_t new_var(vars_t *vars, char *name);
 void vars_init(vars_t *vars);
-var_t *get_var(vars_t *vars, char *name);
+int32_t get_var(vars_t *vars, char *name);

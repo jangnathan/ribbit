@@ -9,14 +9,14 @@ enum DATATYPE {
 
 typedef struct {
 	enum DATATYPE type;
-	void *ptr;
+	uint16_t ptr;
 } value_t;
 
 typedef struct {
 	value_t *array;
-	uint32_t len;
-	uint32_t size;
+	uint16_t len;
+	uint16_t size;
 } values_t;
 
 void values_init(values_t *values);
-value_t *new_value(values_t *values);
+uint16_t new_value(values_t *values);
