@@ -9,13 +9,14 @@ void func_add_param(func_t *func, char *name) {
 }
 
 func_t *new_func(funcs_t *funcs, char *name) {
-	funcs->len++;
 	if (funcs->len > funcs->size) {
 		funcs->size *= 2;
 		funcs->array = realloc(funcs->array, sizeof(func_t) * funcs->size);
 	}
 
 	func_t *func = &funcs->array[funcs->len];
+	funcs->len++;
+
 	strcpy(func->name, name);
 	func->n_param = 0;
 	return func;
