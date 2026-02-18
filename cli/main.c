@@ -42,5 +42,7 @@ int main(int argc, char *argv[]) {
 		print_chain(&preter);
 	}
 
+	cleanup(&preter);
+
 	return 0;
 }

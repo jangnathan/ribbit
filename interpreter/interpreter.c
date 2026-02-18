@@ -27,6 +27,17 @@ void interpreter_init(interpreter_t *preter) {
 	strings_init(&preter->strings);
 }
 
+void cleanup(interpreter_t *preter) {
+	free(preter->ast.array);
+	free(preter->vars.array);
+	free(preter->values.array);
+	free(preter->funcs.array);
+	for (uint16_t i = 0; i < preter->strings.len; i++) {
+		free(preter->strings.array[i].array);
+	}
+	free(preter->strings.array);
+}
+
 void ctx_init(ctx_t *ctx) {
 	#ifdef DEBUG
 	printf("init ctx start\n");

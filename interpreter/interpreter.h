@@ -36,3 +36,4 @@ typedef struct {
 void interpreter_init(interpreter_t *preter);
 void ctx_init(ctx_t *ctx);
 uint8_t load_file(ctx_t *ctx, FILE *file);
+void cleanup(interpreter_t *preter);
