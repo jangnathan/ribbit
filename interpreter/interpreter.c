@@ -5,6 +5,13 @@
 
 #include <stdio.h>
 
+node_t *append_child(ast_t *ast, node_t *temp_node) {
+	node_t *new = &ast->array[new_node(ast)];
+	new->parent = temp_node;
+	temp_node->next = new;
+	return new;
+}
+
 void interpreter_init(interpreter_t *preter) {
 	#ifdef DEBUG
 	printf("init interpreter start\n");
@@ -14,6 +21,7 @@ void interpreter_init(interpreter_t *preter) {
 	preter->ast.size = 16;
 	preter->ast.array = malloc(sizeof(node_t) * preter->ast.size);	
 
+	vars_init(&preter->vars);
 	values_init(&preter->values);
 	funcs_init(&preter->funcs);
 	strings_init(&preter->strings);
@@ -24,10 +32,10 @@ void ctx_init(ctx_t *ctx) {
 	printf("init ctx start\n");
 	#endif
 
+	ast_t *ast = &ctx->preter->ast;
+
 	// genesis
-	new_node(&ctx->preter->ast);
-	ctx->temp_node = &ctx->preter->ast.array[0];
-	ctx->temp_node->type = BLOCK;
+	ctx->temp_node = &ast->array[new_node(ast)];
 	ctx->i = 0;
 	ctx->lex[0] = '\0';
 	ctx->status = ST_NONE;
@@ -70,25 +78,26 @@ uint8_t is_operator(char ch) {
 	return 0;
 }
 
-node_t *append_child(ast_t *ast, node_t *temp_node) {
-	node_t *new = &ast->array[new_node(ast)];
-	new->parent = temp_node;
-	temp_node->next = new;
-	return new;
-}
+uint8_t lex_handle_ref(ctx_t *ctx, char ch) {
+	if (!(ch == '+' || ch == ')' ||
+		is_lex(ch) || ch == '\0')) {
+		return user_err("unexpected character");
+	}
 
-// it needs to get the instruction
-// it needs to make a tree
-// how to do that?
-// it does so by going through the file
-// it finds a statement, and if theres stuff inside the parameters
-// there are new nodes??
-// like setting a variable...
-// should there be a symbol table for each scope?
-// no thats stupid, everything will just be global, its simpler, since this is just an ast
-// Have it be a hash table
-// Current node -> if it reads something like my_var = 1
-// then it creates a DECLARATION node
+	vars_t *vars = &ctx->preter->vars;
+	values_t *values = &ctx->preter->values;
+
+	int32_t var_id = get_var(vars, ctx->lex);
+	if (var_id == -1) {
+		printf("%s\n", ctx->lex);
+		return user_err("variable doesnt exist");
+	}
+	var_t var = vars->array[var_id];
+
+	ctx->temp_node->type = VALUE;
+	ctx->temp_node->ptr = var.ptr;
+	return 1;
+}
 
 uint8_t process(ctx_t *ctx, char ch) {
 	interpreter_t *preter = ctx->preter;
@@ -97,11 +106,6 @@ uint8_t process(ctx_t *ctx, char ch) {
 	values_t *values = &preter->values;
 	strings_t *strings = &preter->strings;
 	ast_t *ast = &preter->ast;
-
-#ifdef DEBUG
-	printf("%c", ch);
-	fflush(stdout);
-#endif
 
 	switch (ctx->status) {
 		case ST_NONE: {
@@ -112,7 +116,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 			} else if (ch == '"') {
 				ctx->status = ST_STRING;
 
-				ctx->temp_node->type = LITERAL;
+				ctx->temp_node->type = VALUE;
 				uint16_t id = new_value(values);
 				value_t *value = &values->array[id];
 				value->type = STRING;
@@ -131,17 +135,19 @@ uint8_t process(ctx_t *ctx, char ch) {
 					return user_err("lex is too long");
 				}
 				ctx->i++;
-			} else if (is_whitespace(ch)) {
-				ctx->status = ST_LEX_END;
-				ctx->lex[ctx->i] = '\0';
-			} else if (ch == '(') {
-				ctx->lex[ctx->i] = '\0';
-				goto lex_par;
-			} else if (ch == '=') {
-				ctx->lex[ctx->i] = '\0';
-				goto lex_equal;
 			} else {
-				return user_err("unexpected symbol");
+				ctx->lex[ctx->i] = '\0';
+
+				if (is_whitespace(ch)) {
+					ctx->status = ST_LEX_END;
+				} else if (ch == '(') {
+					goto lex_par;
+				} else if (ch == '=') {
+					goto lex_equal;
+				} else {
+					// could be just a variable
+					goto lex_else;
+				}
 			}
 			break;
 		}
@@ -162,13 +168,12 @@ uint8_t process(ctx_t *ctx, char ch) {
 
 				// if its a function
 				int32_t func_id = get_func(funcs, ctx->lex);
-				func_t *func = &funcs->array[func_id];
-				if (func_id == -1) {
-					return user_err("function doesnt exist");
-				}
+				if (func_id == -1) return user_err("function doesnt exist");
 				ctx->temp_node->ptr = func_id;
-				if (func->n_param > 0) {
-					if (func->n_param == 1) {
+
+				func_t func = funcs->array[func_id];
+				if (func.n_param > 0) {
+					if (func.n_param == 1) {
 						ctx->temp_node = append_child(ast, ctx->temp_node);
 					} else {
 						ctx->temp_node = append_child(ast, ctx->temp_node);
@@ -179,21 +184,34 @@ uint8_t process(ctx_t *ctx, char ch) {
 				}
 
 				ctx->status = ST_NONE;
+			} else if (ch == '=') {
+			lex_equal:
+				ctx->temp_node->type = DECLARATION;
+
+				int32_t var_id = get_var(vars, ctx->lex);
+				if (var_id == -1) {
+					var_id = new_var(vars, ctx->lex);
+				}
+				ctx->temp_node->ptr = var_id;
+
+				ctx->temp_node = append_child(ast, ctx->temp_node);
+
+				ctx->status = ST_NONE;
+			} else if (is_whitespace(ch)) {
+				break;
+			} else {
+				// could be a reference / var
+			lex_else:
+				if (!lex_handle_ref(ctx, ch)) return 0;
+				goto st_end;
 			}
 			break;
 		}
 		case ST_END: {
-			if (ch == '=') {
-			lex_equal:
-				ctx->temp_node->type = DECLARATION;
-				int32_t var = get_var(vars, ctx->lex);
-				if (var == -1) {
-					var = new_var(vars, ctx->lex);
-				}
-				ctx->temp_node->ptr = var;
+			if (is_whitespace(ch)) break;
 
-				ctx->status = ST_NONE;
-			} else if (ch == '+') {
+		st_end:
+			if (ch == '+') {
 				node_t *operator = &ast->array[new_node(ast)];
 				ctx->temp_node->parent->next = operator;
 				operator->parent = ctx->temp_node->parent;
@@ -216,14 +234,37 @@ uint8_t process(ctx_t *ctx, char ch) {
 					og_node->next = ctx->temp_node;
 
 					ctx->status = ST_NONE;
+				} else {
+					return user_err("unexpected ')'");
+				}
+				// a new statement / ending
+			} else if (is_lex(ch) || ch == '\0') {
+				if (ctx->temp_node->parent->type == DECLARATION) {
+					ctx->temp_node->back = 1;
+
+					node_t *og_node = ctx->temp_node;
+					ctx->temp_node = &ast->array[new_node(ast)];
+					ctx->temp_node->parent = og_node->parent->parent;
+					og_node->next = ctx->temp_node;
+
+					ctx->status = ST_NONE;
+					if (is_lex(ch)) return process(ctx, ch);
 					break;
 				}
-
-				return user_err("unexpected ')'");
+				return user_err("unexpected character");
+			} else {
+				return user_err("unexpected character");
 			}
 			break;
 		}
 	}
+
+#ifdef DEBUG
+	printf("%c", ch);
+	fflush(stdout);
+#endif
+
+
 	return 1;
 }
 
@@ -231,6 +272,10 @@ uint8_t load_file(ctx_t *ctx, FILE *file) {
 	char ch;
 	while ((ch = fgetc(file)) != EOF) {
 		if (!process(ctx, ch)) return 0;
+	}
+	if (!process(ctx, '\0')) return 0;
+	if (ctx->status != ST_NONE) {
+		return user_err("unfinished statement");
 	}
 	return 1;
 }

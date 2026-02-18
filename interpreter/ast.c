@@ -9,7 +9,7 @@ char *nodetype_string[] = {
 	"CALL",
 	"IF",
 	"FOR_LOOP",
-	"LITERAL",
+	"VALUE",
 	"REFERENCE",
 	"ADD",
 	"SUB",

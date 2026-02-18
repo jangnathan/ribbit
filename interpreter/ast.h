@@ -10,9 +10,7 @@ enum NODE_TYPE {
 	IF,
 	FOR_LOOP,
 
-	// literals
-	LITERAL,
-	REFERENCE,
+	VALUE,
 
 	// exp
 	ADD,

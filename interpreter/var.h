@@ -6,7 +6,7 @@
 
 typedef struct {
 	char name[MAX_LEX_LEN];
-	value_t value;
+	uint16_t ptr;
 } var_t;
 
 typedef struct {

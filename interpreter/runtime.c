@@ -50,10 +50,10 @@ uint8_t handle_call(interpreter_t *preter, node_t *temp_node) {
 	func_t *func = &preter->funcs.array[temp_node->ptr];
 
 	// first param
-	func->params[0].value = preter->values.array[temp_node->next->ptr];
+	func->params[0].ptr = temp_node->next->ptr;
 
 	if (strcmp(func->name, "print") == 0) {
-		value_t value = func->params[0].value;
+		value_t value = preter->values.array[func->params[0].ptr];
 		string_t content = preter->strings.array[value.ptr];
 		printf("%s\n", content.array);
 	}
@@ -61,9 +61,15 @@ uint8_t handle_call(interpreter_t *preter, node_t *temp_node) {
 	return 1;
 }
 
+uint8_t handle_declare(interpreter_t *preter, node_t *temp_node) {
+	temp_node->ptr = temp_node->next->ptr;
+	return 1;
+}
+
 uint8_t run(interpreter_t *preter) {
 	ast_t *ast = &preter->ast;
 	node_t *temp_node = &ast->array[0];
+	printf("-- RUNTIME --\n");
 	while (temp_node->type != END) {
 		switch (temp_node->type) {
 			case BLOCK: {
@@ -74,8 +80,8 @@ uint8_t run(interpreter_t *preter) {
 				handle_call(preter, temp_node);
 				break;
 			}
-			case END: {
-				printf("END\n");
+			case DECLARATION: {
+				handle_declare(preter, temp_node);
 				break;
 			}
 			default: {
@@ -84,10 +90,11 @@ uint8_t run(interpreter_t *preter) {
 
 		temp_node = temp_node->next;
 	}
+	printf("-- END PROGRAM --\n");
 	return 1;
 }
 
-void print_literal(interpreter_t *preter, value_t *value) {
+void print_value(interpreter_t *preter, value_t *value) {
 	switch (value->type) {
 		case STRING: {
 			string_t str = preter->strings.array[value->ptr];
@@ -97,7 +104,7 @@ void print_literal(interpreter_t *preter, value_t *value) {
 		default: {
 		}
 	}
-	printf("LITERAL\n");
+	printf("VALUE\n");
 
 }
 uint8_t print(interpreter_t *preter) {
@@ -108,6 +115,8 @@ uint8_t print(interpreter_t *preter) {
 	printf("-- TREE --\n");
 	uint8_t idx = 0;
 	while (temp_node->type != END) {
+		temp_node = temp_node->next;
+
 		for (uint8_t i = 0; i < idx; i++) {
 			printf("  ");
 		}
@@ -121,12 +130,17 @@ uint8_t print(interpreter_t *preter) {
 				printf("%s\n", func.name);
 				break;
 			}
+			case DECLARATION: {
+				printf("DECLARATION\n");
+				break;
+			}
 			case PARENTHESIS: {
 				printf("PARENTHESIS\n");
+				break;
 			}
-			case LITERAL: {
+			case VALUE: {
 				value_t value = preter->values.array[temp_node->ptr];
-				print_literal(preter, &value);
+				print_value(preter, &value);
 				break;
 			}
 			case END: {
@@ -143,8 +157,6 @@ uint8_t print(interpreter_t *preter) {
 		if (temp_node->next != 0 && temp_node->back == 0) {
 			idx++;
 		}
-
-		temp_node = temp_node->next;
 	}
 	return 1;
 }
