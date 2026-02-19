@@ -30,7 +30,7 @@ uint32_t new_node(ast_t *ast) {
 	node_t *new = &ast->array[ast->len];
 	ast->len++;
 
-	new->next = 0;
+	new->next_id = 0;
 	new->back = 0;
 	new->type = END;
 

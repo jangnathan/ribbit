@@ -24,8 +24,8 @@ void log_nodetype(enum NODE_TYPE type);
 typedef struct node {
 	enum NODE_TYPE type;
 	uint32_t ptr;
-	struct node *next;
-	struct node *parent;
+	uint32_t next_id;
+	uint32_t parent_id;
 	uint8_t back; // bool saying that it exists the current exp
 } node_t;
 // you do go back??

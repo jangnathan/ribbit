@@ -25,6 +25,7 @@ uint8_t should_eval(enum NODE_TYPE type) {
 	return 0;
 }
 
+/*
 uint8_t eval_exp(node_t *node) {
 	node_t *temp_node = node;
 	queue_t queue;
@@ -45,12 +46,14 @@ uint8_t eval_exp(node_t *node) {
 	}
 	return 1;
 }
+*/
 
 uint8_t handle_call(interpreter_t *preter, node_t *temp_node) {
+	ast_t ast = preter->ast;
 	func_t *func = &preter->funcs.array[temp_node->ptr];
 
 	// first param
-	func->params[0].ptr = temp_node->next->ptr;
+	func->params[0].ptr = ast.array[temp_node->next_id].ptr;
 
 	if (strcmp(func->name, "print") == 0) {
 		value_t value = preter->values.array[func->params[0].ptr];
@@ -62,13 +65,14 @@ uint8_t handle_call(interpreter_t *preter, node_t *temp_node) {
 }
 
 uint8_t handle_declare(interpreter_t *preter, node_t *temp_node) {
-	temp_node->ptr = temp_node->next->ptr;
+	ast_t ast = preter->ast;
+	temp_node->ptr = ast.array[temp_node->next_id].ptr;
 	return 1;
 }
 
 uint8_t run(interpreter_t *preter) {
-	ast_t *ast = &preter->ast;
-	node_t *temp_node = &ast->array[0];
+	ast_t ast = preter->ast;
+	node_t *temp_node = &ast.array[0];
 	printf("-- RUNTIME --\n");
 	while (temp_node->type != END) {
 		switch (temp_node->type) {
@@ -88,7 +92,7 @@ uint8_t run(interpreter_t *preter) {
 			}
 		}
 
-		temp_node = temp_node->next;
+		temp_node = &ast.array[temp_node->next_id];
 	}
 	printf("-- END PROGRAM --\n");
 	return 1;
@@ -109,13 +113,13 @@ void print_value(interpreter_t *preter, value_t *value) {
 }
 uint8_t print(interpreter_t *preter) {
 	printf("-- AST STATS --\n");
-	ast_t *ast = &preter->ast;
-	node_t *temp_node = &ast->array[0];
-	printf("ast len: %d\n", ast->len);
+	ast_t ast = preter->ast;
+	node_t *temp_node = &ast.array[0];
+	printf("ast len: %d\n", ast.len);
 	printf("-- TREE --\n");
 	uint8_t idx = 0;
 	while (temp_node->type != END) {
-		temp_node = temp_node->next;
+		temp_node = &ast.array[temp_node->next_id];
 
 		for (uint8_t i = 0; i < idx; i++) {
 			printf("  ");
@@ -154,7 +158,7 @@ uint8_t print(interpreter_t *preter) {
 		if (temp_node->back == 1) {
 			idx--;
 		}
-		if (temp_node->next != 0 && temp_node->back == 0) {
+		if (temp_node->next_id != 0 && temp_node->back == 0) {
 			idx++;
 		}
 	}
@@ -162,15 +166,15 @@ uint8_t print(interpreter_t *preter) {
 }
 
 uint8_t print_chain(interpreter_t *preter) {
-	ast_t *ast = &preter->ast;
-	node_t *temp_node = &ast->array[0];
+	ast_t ast = preter->ast;
+	node_t *temp_node = &ast.array[0];
 	while (temp_node->type != END) {
 		log_nodetype(temp_node->type);
 		printf("-->");
 		if (temp_node->back) {
 			printf("BACK |\n");
 		}
-		temp_node = temp_node->next;
+		temp_node = &ast.array[temp_node->next_id];
 	}
 	return 1;
 }

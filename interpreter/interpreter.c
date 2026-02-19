@@ -6,11 +6,13 @@
 #include <stdio.h>
 
 node_t *append_child(ast_t *ast) {
-	node_t *temp_node = &ast->array[ast->len - 1];
+	uint32_t temp_id = ast->len - 1;
+	node_t *temp_node = &ast->array[temp_id];
 	uint32_t new_id = new_node(ast);
+
 	node_t *new = &ast->array[new_id];
-	new->parent = temp_node;
-	temp_node->next = new;
+	new->parent_id = temp_id;
+	temp_node->next_id = new_id;
 	return new;
 }
 
@@ -225,26 +227,32 @@ uint8_t process(ctx_t *ctx, char ch) {
 
 		st_end:
 			if (ch == '+') {
-				node_t *operator = &ast->array[new_node(ast)];
-				ctx->temp_node->parent->next = operator;
-				operator->parent = ctx->temp_node->parent;
-				operator->next = ctx->temp_node;
-				ctx->temp_node->parent = operator;
+				uint32_t temp_id = ast->len - 1;
+				uint32_t operator_id = new_node(ast);
+				node_t *operator = &ast->array[operator_id];
+				node_t *parent = &ast->array[ctx->temp_node->parent_id];
+				parent->next_id = operator_id;
 
-				node_t *og_node = ctx->temp_node;
-				ctx->temp_node = &ast->array[new_node(ast)];
-				ctx->temp_node->parent = operator;
-				og_node->next = ctx->temp_node;
+				operator->parent_id = ctx->temp_node->parent_id;
+				operator->next_id = temp_id;
+				ctx->temp_node->parent_id = operator_id;
+
+				uint32_t og_id = ast->len - 1;
+				temp_id = new_node(ast);
+				ctx->temp_node = &ast->array[temp_id];
+				ctx->temp_node->parent_id = operator_id;
+				ast->array[og_id].next_id = temp_id;
 
 				ctx->status = ST_NONE;
 			} else if (ch == ')') {
-				if (ctx->temp_node->parent->type == CALL) {
+				if (ast->array[ctx->temp_node->parent_id].type == CALL) {
 					ctx->temp_node->back = 1;
 
-					node_t *og_node = ctx->temp_node;
-					ctx->temp_node = &ast->array[new_node(ast)];
-					ctx->temp_node->parent = og_node->parent->parent;
-					og_node->next = ctx->temp_node;
+					uint32_t og_id = ast->len - 1;
+					uint32_t temp_id = new_node(ast);
+					ctx->temp_node = &ast->array[temp_id];
+					ctx->temp_node->parent_id = ast->array[ast->array[og_id].parent_id].parent_id;
+					ast->array[og_id].next_id = temp_id;
 
 					ctx->status = ST_NONE;
 				} else {
@@ -252,13 +260,14 @@ uint8_t process(ctx_t *ctx, char ch) {
 				}
 				// a new statement / ending
 			} else if (is_lex(ch) || ch == '\0') {
-				if (ctx->temp_node->parent->type == DECLARATION) {
+				if (ast->array[ctx->temp_node->parent_id].type == DECLARATION) {
 					ctx->temp_node->back = 1;
 
-					node_t *og_node = ctx->temp_node;
-					ctx->temp_node = &ast->array[new_node(ast)];
-					ctx->temp_node->parent = og_node->parent->parent;
-					og_node->next = ctx->temp_node;
+					uint32_t og_id = ast->len - 1;
+					uint32_t temp_id = new_node(ast);
+					ctx->temp_node = &ast->array[temp_id];
+					ctx->temp_node->parent_id = ast->array[ast->array[og_id].parent_id].parent_id;
+					ast->array[og_id].next_id = temp_id;
 
 					ctx->status = ST_NONE;
 					if (is_lex(ch)) return process(ctx, ch);
