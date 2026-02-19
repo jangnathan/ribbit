@@ -5,8 +5,10 @@
 
 #include <stdio.h>
 
-node_t *append_child(ast_t *ast, node_t *temp_node) {
-	node_t *new = &ast->array[new_node(ast)];
+node_t *append_child(ast_t *ast) {
+	node_t *temp_node = &ast->array[ast->len - 1];
+	uint32_t new_id = new_node(ast);
+	node_t *new = &ast->array[new_id];
 	new->parent = temp_node;
 	temp_node->next = new;
 	return new;
@@ -185,12 +187,12 @@ uint8_t process(ctx_t *ctx, char ch) {
 				func_t func = funcs->array[func_id];
 				if (func.n_param > 0) {
 					if (func.n_param == 1) {
-						ctx->temp_node = append_child(ast, ctx->temp_node);
+						ctx->temp_node = append_child(ast);
 					} else {
-						ctx->temp_node = append_child(ast, ctx->temp_node);
+						ctx->temp_node = append_child(ast);
 						ctx->temp_node->type = PARENTHESIS;
 
-						ctx->temp_node = append_child(ast, ctx->temp_node);
+						ctx->temp_node = append_child(ast);
 					}
 				}
 
@@ -205,7 +207,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 				}
 				ctx->temp_node->ptr = var_id;
 
-				ctx->temp_node = append_child(ast, ctx->temp_node);
+				ctx->temp_node = append_child(ast);
 
 				ctx->status = ST_NONE;
 			} else if (is_whitespace(ch)) {
