@@ -102,8 +102,8 @@ uint8_t eval_exp(interpreter_t *preter, uint32_t node_id) {
 		}
 
 		if (temp_node.state == NS_BACK || temp_node.state == NS_END) {
-			for (uint8_t i = 0; i < queue.len; i++) {
-				uint32_t node_id = queue.array[i];
+			for (uint8_t i = 0; i < queue.len; i++){
+				uint32_t node_id = queue.array[queue.len - i - 1];
 				if (!activate_node(preter, node_id)) return 0;
 			}
 			queue.len = 0;

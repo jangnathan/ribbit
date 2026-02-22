@@ -6,3 +6,6 @@ print(str)
 
 str = "hello " + "world" + " Three"
 print(str)
+
+str = "hello " + "world" + " Three" + " unFaulty four"
+print(str)
