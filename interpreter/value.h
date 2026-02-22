@@ -2,6 +2,7 @@
 #include <stdint.h>
 
 enum DATATYPE {
+	UNDEFINED,
 	STRING,
 	INT,
 	FLOAT

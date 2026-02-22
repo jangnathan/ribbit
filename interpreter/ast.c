@@ -18,7 +18,14 @@ char *nodetype_string[] = {
 	"PARENTHESIS"
 };
 void log_nodetype(enum NODE_TYPE type) {
-	printf("%s\n", nodetype_string[(uint8_t)type]);
+	printf("%s", nodetype_string[(uint8_t)type]);
+}
+
+uint8_t should_eval(enum NODE_TYPE type) {
+	if (type >= ADD) {
+		return 1;
+	}
+	return 0;
 }
 
 uint32_t new_node(ast_t *ast) {
@@ -31,7 +38,7 @@ uint32_t new_node(ast_t *ast) {
 	ast->len++;
 
 	new->next_id = 0;
-	new->back = 0;
+	new->state = NS_NONE;
 	new->type = END;
 
 	return ast->len - 1;

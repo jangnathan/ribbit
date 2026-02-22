@@ -1,4 +1,7 @@
 #include "runtime.h"
+#include "string.h"
+#include "user_error.h"
+
 #include <string.h>
 
 // decide temp values for evaluation in stack
@@ -7,57 +10,120 @@
 // if something requires an exp such as call or declaration
 // check if the child is an exp and not literal
 // if the child is a number you must turn it into a string
+
+uint8_t activate_node(interpreter_t *preter, uint32_t id) {
+	ast_t ast = preter->ast;
+	values_t values = preter->values;
+	strings_t *strings = &preter->strings;
+
+	node_t temp_node = ast.array[id];
+	node_t parent = ast.array[temp_node.parent_id];
+	value_t *parent_value = &values.array[parent.ptr];
+
+	value_t value;
+	if (temp_node.type == REFERENCE) {
+		var_t var = preter->vars.array[temp_node.ptr];
+		value = values.array[var.ptr];
+	} else {
+		value = values.array[temp_node.ptr];
+	}
+
+	// adding a string is ok
+	// Not adding is string is Not ok
+	// adding a number is ok
+	// not adding a number is ok
+	// == string && != add then stop
+
+	if (parent.type != ADD && value.type == STRING) {
+		return user_err("Cannot perform any other arithmetic with string than add");
+	}
+
+	if (parent.next_id == id) {
+		switch (value.type) {
+			case STRING: {
+				if (parent_value->type == UNDEFINED) {
+					parent_value->ptr = new_string(strings);
+				}
+				copy_string_w_id(strings, parent_value->ptr, value.ptr);
+			}
+			default: {
+			}
+		}
+		parent_value->type = value.type;
+		return 1;
+	}
+
+	switch (parent.type) {
+		case ADD: {
+			if (value.type == STRING && parent_value->type == STRING) {
+				add_strings_w_id(strings, parent_value->ptr, value.ptr);
+			}
+		}
+		default: {
+		}
+	}
+	return 1;
+}
+
 typedef struct {
-	node_t *array[MAX_QUEUE_LEN];
 	uint8_t len;
+	uint32_t array[MAX_QUEUE_LEN];
 } queue_t;
 
-void add2queue(queue_t *queue, node_t *node) {
-	queue->array[queue->len] = node;
+void add2queue(queue_t *queue, uint32_t id) {
+	queue->array[queue->len] = id;
 	queue->len++;
 	// take care of max queue issues at lexer-time
 }
 
-uint8_t should_eval(enum NODE_TYPE type) {
-	if (type >= ADD) {
-		return 1;
-	}
-	return 0;
-}
-
-/*
-uint8_t eval_exp(node_t *node) {
-	node_t *temp_node = node;
+uint8_t eval_exp(interpreter_t *preter, uint32_t node_id) {
+	ast_t ast = preter->ast;
+	node_t temp_node = ast.array[node_id];
+	uint32_t id = node_id;
 	queue_t queue;
 	queue.len = 0;
-	while (temp_node->back == 0) {
-		if (should_eval(temp_node->type)) {
-			add2queue(&queue, temp_node);
+
+	if (!should_eval(temp_node.type)) {
+		if (temp_node.type == REFERENCE) {
+			var_t var = preter->vars.array[temp_node.ptr];
+			ast.array[node_id].ptr = var.ptr;
+		}
+		return 1;
+	}
+
+	while (temp_node.state != NS_END) {
+		id = temp_node.next_id;
+		temp_node = ast.array[id];
+
+		if (should_eval(temp_node.type)) {
+			add2queue(&queue, id);
 		} else {
-			switch (temp_node->parent->type) {
-				case ADD: {
-				}
-				default: {
-				}
-			}
+			if (!activate_node(preter, id)) return 0;
 		}
 
-		temp_node = temp_node->next;
+		if (temp_node.state == NS_BACK || temp_node.state == NS_END) {
+			for (uint8_t i = 0; i < queue.len; i++) {
+				uint32_t node_id = queue.array[i];
+				if (!activate_node(preter, node_id)) return 0;
+			}
+			queue.len = 0;
+		}
 	}
 	return 1;
 }
-*/
 
 uint8_t handle_call(interpreter_t *preter, node_t *temp_node) {
 	ast_t ast = preter->ast;
 	func_t *func = &preter->funcs.array[temp_node->ptr];
 
 	// first param
+	if (!eval_exp(preter, temp_node->next_id)) return 0;
 	func->params[0].ptr = ast.array[temp_node->next_id].ptr;
 
 	if (strcmp(func->name, "print") == 0) {
 		value_t value = preter->values.array[func->params[0].ptr];
 		string_t content = preter->strings.array[value.ptr];
+		content.array[content.len] = '\0';
 		printf("%s\n", content.array);
 	}
 
@@ -66,7 +132,12 @@ uint8_t handle_call(interpreter_t *preter, node_t *temp_node) {
 
 uint8_t handle_declare(interpreter_t *preter, node_t *temp_node) {
 	ast_t ast = preter->ast;
-	temp_node->ptr = ast.array[temp_node->next_id].ptr;
+	vars_t vars = preter->vars;
+	var_t *var = &vars.array[temp_node->ptr];
+
+	eval_exp(preter, temp_node->next_id);
+
+	var->ptr = ast.array[temp_node->next_id].ptr;
 	return 1;
 }
 
@@ -102,14 +173,12 @@ void print_value(interpreter_t *preter, value_t *value) {
 	switch (value->type) {
 		case STRING: {
 			string_t str = preter->strings.array[value->ptr];
-			printf("STRING: %s\n", str.array);
+			printf("STRING: %s", str.array);
 			break;
 		}
 		default: {
 		}
 	}
-	printf("VALUE\n");
-
 }
 uint8_t print(interpreter_t *preter) {
 	printf("-- AST STATS --\n");
@@ -119,8 +188,6 @@ uint8_t print(interpreter_t *preter) {
 	printf("-- TREE --\n");
 	uint8_t idx = 0;
 	while (temp_node->type != END) {
-		temp_node = &ast.array[temp_node->next_id];
-
 		for (uint8_t i = 0; i < idx; i++) {
 			printf("  ");
 		}
@@ -151,30 +218,70 @@ uint8_t print(interpreter_t *preter) {
 				printf("END\n");
 				break;
 			}
+			case ADD: {
+				printf("ADD\n");
+				break;
+			}
 			default: {
 			}
 		}
 
-		if (temp_node->back == 1) {
+		if (temp_node->state > 0) {
 			idx--;
 		}
-		if (temp_node->next_id != 0 && temp_node->back == 0) {
+		if (temp_node->next_id != 0 && temp_node->state == NS_END) {
 			idx++;
 		}
+
+		temp_node = &ast.array[temp_node->next_id];
 	}
+	return 1;
+}
+
+uint8_t print_node(interpreter_t *preter, uint32_t id) {
+	ast_t ast = preter->ast;
+	node_t temp_node = ast.array[id];
+	printf("-- ");
+	log_nodetype(temp_node.type);
+	printf(" --\n");
+	printf("IDs: this %d / parent %d / next %d\n", id, temp_node.parent_id, temp_node.next_id);
+	printf("state:");
+	switch (temp_node.state) {
+		case NS_NONE:
+			printf("none");
+			break;
+		case NS_BACK:
+			printf("back");
+			break;
+		case NS_END:
+			printf("end");
+			break;
+	}
+	if (temp_node.type == VALUE) {
+		printf("\nVALUE: ");
+		value_t value = preter->values.array[temp_node.ptr];
+		switch (value.type) {
+			case STRING: {
+				string_t str = preter->strings.array[value.ptr];
+				printf("\"%s\"", str.array);
+				break;
+			}
+			default: {
+			}
+		}
+	}
+	printf("\n");
 	return 1;
 }
 
 uint8_t print_chain(interpreter_t *preter) {
 	ast_t ast = preter->ast;
 	node_t *temp_node = &ast.array[0];
+	uint32_t id = 0;
 	while (temp_node->type != END) {
-		log_nodetype(temp_node->type);
-		printf("-->");
-		if (temp_node->back) {
-			printf("BACK |\n");
-		}
-		temp_node = &ast.array[temp_node->next_id];
+		print_node(preter, id);
+		id = temp_node->next_id;
+		temp_node = &ast.array[id];
 	}
 	return 1;
 }

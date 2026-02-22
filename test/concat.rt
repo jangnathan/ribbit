@@ -1,0 +1,8 @@
+str = "hello " + "world"
+print(str)
+print(str + "!")
+str = str + " 2 hello world"
+print(str)
+
+str = "hello " + "world" + " Three"
+print(str)

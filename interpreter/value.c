@@ -13,7 +13,7 @@ uint16_t new_value(values_t *values) {
 		values->array = realloc(values->array, sizeof(value_t) * values->size);
 	}
 
-	value_t *value = &values->array[values->len];
+	values->array[values->len].type = UNDEFINED;
 	values->len++;
 
 	return values->len - 1;

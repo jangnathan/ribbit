@@ -100,18 +100,30 @@ uint8_t lex_handle_ref(ctx_t *ctx, char ch) {
 	}
 
 	vars_t *vars = &ctx->preter->vars;
-	values_t *values = &ctx->preter->values;
 
 	int32_t var_id = get_var(vars, ctx->lex);
 	if (var_id == -1) {
 		printf("%s\n", ctx->lex);
 		return user_err("variable doesnt exist");
 	}
-	var_t var = vars->array[var_id];
 
-	ctx->temp_node->type = VALUE;
-	ctx->temp_node->ptr = var.ptr;
+	ctx->temp_node->type = REFERENCE;
+	ctx->temp_node->ptr = var_id;
 	return 1;
+}
+
+uint8_t is_part_of_type(ast_t *ast, enum NODE_TYPE type) {
+	uint32_t temp_id = ast->len - 1;
+	node_t temp_node = ast->array[temp_id];
+
+	temp_node = ast->array[temp_node.parent_id];
+	while (should_eval(temp_node.type) || temp_node.type == type) {
+		if (temp_node.type == type) {
+			return 1;
+		}
+		temp_node = ast->array[temp_node.parent_id];
+	}
+	return 0;
 }
 
 uint8_t process(ctx_t *ctx, char ch) {
@@ -167,12 +179,13 @@ uint8_t process(ctx_t *ctx, char ch) {
 			break;
 		}
 		case ST_STRING: {
+			value_t value = values->array[ctx->temp_node->ptr];
+			string_t *str = &strings->array[value.ptr];
 			if (ch == '"') {
 				ctx->status = ST_END;
+				str->array[str->len] = '\0';
 			} else {
-				value_t value = values->array[ctx->temp_node->ptr];
-				string_t *str = &strings->array[value.ptr];
-				add2string(str, ch);
+				add_char2string_w_id(str, ch);
 			}
 			break;
 		}
@@ -231,22 +244,31 @@ uint8_t process(ctx_t *ctx, char ch) {
 				uint32_t operator_id = new_node(ast);
 				node_t *operator = &ast->array[operator_id];
 				node_t *parent = &ast->array[ctx->temp_node->parent_id];
-				parent->next_id = operator_id;
 
+				if (parent->next_id == temp_id) {
+					parent->next_id = operator_id;
+				} else {
+					ctx->temp_node->state = NS_NONE;
+					ast->array[temp_id - 2].next_id = operator_id;
+				}
+
+				operator->type = ADD;
+				operator->ptr = new_value(values);
 				operator->parent_id = ctx->temp_node->parent_id;
 				operator->next_id = temp_id;
 				ctx->temp_node->parent_id = operator_id;
 
-				uint32_t og_id = ast->len - 1;
+				uint32_t og_id = temp_id;
 				temp_id = new_node(ast);
 				ctx->temp_node = &ast->array[temp_id];
 				ctx->temp_node->parent_id = operator_id;
 				ast->array[og_id].next_id = temp_id;
+				ctx->temp_node->state = NS_BACK;
 
 				ctx->status = ST_NONE;
 			} else if (ch == ')') {
-				if (ast->array[ctx->temp_node->parent_id].type == CALL) {
-					ctx->temp_node->back = 1;
+				if (is_part_of_type(ast, CALL)) {
+					ctx->temp_node->state = NS_END;
 
 					uint32_t og_id = ast->len - 1;
 					uint32_t temp_id = new_node(ast);
@@ -260,8 +282,8 @@ uint8_t process(ctx_t *ctx, char ch) {
 				}
 				// a new statement / ending
 			} else if (is_lex(ch) || ch == '\0') {
-				if (ast->array[ctx->temp_node->parent_id].type == DECLARATION) {
-					ctx->temp_node->back = 1;
+				if (is_part_of_type(ast, DECLARATION)) {
+					ctx->temp_node->state = NS_END;
 
 					uint32_t og_id = ast->len - 1;
 					uint32_t temp_id = new_node(ast);
@@ -275,7 +297,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 				}
 				return user_err("unexpected character");
 			} else {
-				return user_err("unexpected character");
+				return user_err("end: unexpected character");
 			}
 			break;
 		}
