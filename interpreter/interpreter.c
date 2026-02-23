@@ -1,6 +1,7 @@
 #include "interpreter.h"
 #include "constants.h"
 #include "user_error.h"
+#include "helpers.h"
 #include "value.h"
 
 #include <stdio.h>
@@ -29,6 +30,7 @@ void interpreter_init(interpreter_t *preter) {
 	values_init(&preter->values);
 	funcs_init(&preter->funcs);
 	strings_init(&preter->strings);
+	rt_ints_init(&preter->rt_ints);
 }
 
 void cleanup(interpreter_t *preter) {
@@ -60,42 +62,8 @@ void ctx_init(ctx_t *ctx) {
 	#endif
 }
 
-uint8_t is_whitespace(char ch) {
-	if (ch == '\n' || ch == ' ' || ch == '\t') {
-		return 1;
-	}
-	return 0;
-}
-uint8_t is_lex(char ch) {
-	uint8_t chn = (uint8_t)ch;
-	if (chn >= 48 && chn <= 57) return 1;
-	if (chn >= 64 && chn <= 90) return 1;
-	if (chn >= 97 && chn <= 122) return 1;
-	if (ch == '_') return 1;
-	return 0;
-}
-uint8_t is_num(char ch) {
-	uint8_t chn = (uint8_t)ch;
-	if (chn >= 48 && chn <= 57) {
-		return 1;
-	}
-	return 0;
-}
-uint8_t char2digit(char ch) {
-	uint8_t chn = (uint8_t)ch;
-	return chn - 48;
-}
-uint8_t is_operator(char ch) {
-	if (ch=='+'||ch=='-'||ch=='/'||ch=='*'||
-		ch=='<'||ch=='>') {
-		return 1;
-	}
-	return 0;
-}
-
 uint8_t lex_handle_ref(ctx_t *ctx, char ch) {
-	if (!(ch == '+' || ch == ')' ||
-		is_lex(ch) || ch == '\0')) {
+	if (!is_ender(ch)) {
 		return user_err("unexpected character");
 	}
 
@@ -137,7 +105,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 	switch (ctx->status) {
 		case ST_NONE: {
 			ctx->i = 0;
-			if (is_lex(ch)) {
+			if (is_lex(ch) && !is_num(ch)) {
 				ctx->status = ST_LEX;
 				goto lex;
 			} else if (ch == '"') {
@@ -151,6 +119,49 @@ uint8_t process(ctx_t *ctx, char ch) {
 
 				id = new_string(strings);
 				value->ptr = id;
+			} else if (is_num(ch) || ch == '-') {
+				ctx->status = ST_NUMBER;
+
+				ctx->temp_node->type = VALUE;
+				uint16_t id = new_value(values);
+				value_t *value = &values->array[id];
+				value->type = I32;
+				
+				if (ch == '-') {
+					ctx->lex[0] = '-';
+					ctx->i = 1;;
+				}
+
+				// create nums later
+				goto st_int;
+			}
+			break;
+		}
+		case ST_NUMBER: {
+			if (is_num(ch)) {
+			st_int:
+				ctx->lex[ctx->i] = ch;
+				ctx->i++;
+			} else {
+				value_t *value = &values->array[ctx->temp_node->ptr];
+				if (ctx->i >= 9) {
+					value->type = I64;
+				}
+				if (ch == '.') {
+					if (value->type == I64 || value->type == I32) {
+						value->type = FLOAT;
+					} else {
+						return user_err("cannot add extra '.' to number");
+					}
+					break;
+				}
+				parse_number(&preter->rt_ints, value, ctx->lex, ctx->i);
+
+				if (is_whitespace(ch)) {
+					ctx->status = ST_END;
+				} else {
+					goto st_end;
+				}
 			}
 			break;
 		}

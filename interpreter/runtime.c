@@ -180,63 +180,6 @@ void print_value(interpreter_t *preter, value_t *value) {
 		}
 	}
 }
-uint8_t print(interpreter_t *preter) {
-	printf("-- AST STATS --\n");
-	ast_t ast = preter->ast;
-	node_t *temp_node = &ast.array[0];
-	printf("ast len: %d\n", ast.len);
-	printf("-- TREE --\n");
-	uint8_t idx = 0;
-	while (temp_node->type != END) {
-		for (uint8_t i = 0; i < idx; i++) {
-			printf("  ");
-		}
-		switch (temp_node->type) {
-			case BLOCK: {
-				printf("BLOCK\n");
-				break;
-			}
-			case CALL: {
-				func_t func = preter->funcs.array[temp_node->ptr];
-				printf("%s\n", func.name);
-				break;
-			}
-			case DECLARATION: {
-				printf("DECLARATION\n");
-				break;
-			}
-			case PARENTHESIS: {
-				printf("PARENTHESIS\n");
-				break;
-			}
-			case VALUE: {
-				value_t value = preter->values.array[temp_node->ptr];
-				print_value(preter, &value);
-				break;
-			}
-			case END: {
-				printf("END\n");
-				break;
-			}
-			case ADD: {
-				printf("ADD\n");
-				break;
-			}
-			default: {
-			}
-		}
-
-		if (temp_node->state > 0) {
-			idx--;
-		}
-		if (temp_node->next_id != 0 && temp_node->state == NS_END) {
-			idx++;
-		}
-
-		temp_node = &ast.array[temp_node->next_id];
-	}
-	return 1;
-}
 
 uint8_t print_node(interpreter_t *preter, uint32_t id) {
 	ast_t ast = preter->ast;
@@ -266,11 +209,48 @@ uint8_t print_node(interpreter_t *preter, uint32_t id) {
 				printf("\"%s\"", str.array);
 				break;
 			}
+			case I32: {
+				int32_t i32 = preter->rt_ints.i32s[value.ptr];
+				printf("(I32) %d", i32);
+				break;
+			}
+			case I64: {
+				int64_t i64 = preter->rt_ints.i64s[value.ptr];
+				printf("(I64) %lld", i64);
+				break;
+			}
 			default: {
 			}
 		}
 	}
 	printf("\n");
+	return 1;
+}
+
+uint8_t print(interpreter_t *preter) {
+	printf("-- AST STATS --\n");
+	ast_t ast = preter->ast;
+	uint32_t id = 0;
+	node_t *temp_node = &ast.array[id];
+	printf("ast len: %d\n", ast.len);
+	printf("-- TREE --\n");
+	uint8_t idx = 0;
+	while (temp_node->type != END) {
+		for (uint8_t i = 0; i < idx; i++) {
+			printf("  ");
+		}
+		print_node(preter, id);
+
+		if (temp_node->state > 0) {
+			idx--;
+		}
+		if (temp_node->next_id != 0 && temp_node->state == NS_END) {
+			idx++;
+		}
+
+		id = temp_node->next_id;
+		temp_node = &ast.array[id];
+	}
 	return 1;
 }
 

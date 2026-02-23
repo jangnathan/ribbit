@@ -4,7 +4,8 @@
 enum DATATYPE {
 	UNDEFINED,
 	STRING,
-	INT,
+	I32,
+	I64,
 	FLOAT
 };
 

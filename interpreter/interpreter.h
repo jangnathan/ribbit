@@ -3,6 +3,7 @@
 #include "ast.h"
 #include "var.h"
 #include "string.h"
+#include "number.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -15,11 +16,13 @@ typedef struct {
 	vars_t vars;
 	values_t values;
 	strings_t strings;
+	rt_ints_t rt_ints;
 } interpreter_t;
 
 enum STATUS {
 	ST_NONE,
 	ST_STRING,
+	ST_NUMBER,
 	ST_LEX,
 	ST_LEX_END,
 	ST_END
