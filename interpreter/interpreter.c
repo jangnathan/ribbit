@@ -42,6 +42,8 @@ void cleanup(interpreter_t *preter) {
 		free(preter->strings.array[i].array);
 	}
 	free(preter->strings.array);
+	free(preter->rt_ints.i32s);
+	free(preter->rt_ints.i64s);
 }
 
 void ctx_init(ctx_t *ctx) {
@@ -126,6 +128,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 				uint16_t id = new_value(values);
 				value_t *value = &values->array[id];
 				value->type = I32;
+				ctx->temp_node->ptr = id;
 				
 				if (ch == '-') {
 					ctx->lex[0] = '-';

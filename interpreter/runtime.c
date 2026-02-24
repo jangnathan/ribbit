@@ -112,6 +112,30 @@ uint8_t eval_exp(interpreter_t *preter, uint32_t node_id) {
 	return 1;
 }
 
+void print_value(interpreter_t *preter, value_t value) {
+	switch (value.type) {
+		case STRING: {
+			string_t content = preter->strings.array[value.ptr];
+			content.array[content.len] = '\0';
+			printf("%s\n", content.array);
+			break;
+		}
+		case I32: {
+			int32_t i32 = preter->rt_ints.i32s[value.ptr];
+			printf("%d\n", i32);
+			break;
+		}
+		case I64: {
+			int64_t i64 = preter->rt_ints.i64s[value.ptr];
+			printf("%lld\n", i64);
+			break;
+		}
+		default: {
+			break;
+		}
+	}
+}
+
 uint8_t handle_call(interpreter_t *preter, node_t *temp_node) {
 	ast_t ast = preter->ast;
 	func_t *func = &preter->funcs.array[temp_node->ptr];
@@ -122,9 +146,7 @@ uint8_t handle_call(interpreter_t *preter, node_t *temp_node) {
 
 	if (strcmp(func->name, "print") == 0) {
 		value_t value = preter->values.array[func->params[0].ptr];
-		string_t content = preter->strings.array[value.ptr];
-		content.array[content.len] = '\0';
-		printf("%s\n", content.array);
+		print_value(preter, value);
 	}
 
 	return 1;
@@ -169,18 +191,6 @@ uint8_t run(interpreter_t *preter) {
 	return 1;
 }
 
-void print_value(interpreter_t *preter, value_t *value) {
-	switch (value->type) {
-		case STRING: {
-			string_t str = preter->strings.array[value->ptr];
-			printf("STRING: %s", str.array);
-			break;
-		}
-		default: {
-		}
-	}
-}
-
 uint8_t print_node(interpreter_t *preter, uint32_t id) {
 	ast_t ast = preter->ast;
 	node_t temp_node = ast.array[id];
@@ -203,25 +213,7 @@ uint8_t print_node(interpreter_t *preter, uint32_t id) {
 	if (temp_node.type == VALUE) {
 		printf("\nVALUE: ");
 		value_t value = preter->values.array[temp_node.ptr];
-		switch (value.type) {
-			case STRING: {
-				string_t str = preter->strings.array[value.ptr];
-				printf("\"%s\"", str.array);
-				break;
-			}
-			case I32: {
-				int32_t i32 = preter->rt_ints.i32s[value.ptr];
-				printf("(I32) %d", i32);
-				break;
-			}
-			case I64: {
-				int64_t i64 = preter->rt_ints.i64s[value.ptr];
-				printf("(I64) %lld", i64);
-				break;
-			}
-			default: {
-			}
-		}
+		print_value(preter, value);
 	}
 	printf("\n");
 	return 1;
