@@ -15,6 +15,7 @@ uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 	ast_t ast = preter->ast;
 	values_t values = preter->values;
 	strings_t *strings = &preter->strings;
+	rt_ints_t *rt_ints = &preter->rt_ints;
 
 	node_t temp_node = ast.array[id];
 	node_t parent = ast.array[temp_node.parent_id];
@@ -45,6 +46,21 @@ uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 					parent_value->ptr = new_string(strings);
 				}
 				copy_string_w_id(strings, parent_value->ptr, value.ptr);
+				break;
+			}
+			case I32: {
+				if (parent_value->type == UNDEFINED) {
+					parent_value->ptr = new_i32(rt_ints);
+				}
+				rt_ints->i32s[parent_value->ptr] = rt_ints->i32s[value.ptr];
+				break;
+			}
+			case I64: {
+				if (parent_value->type == UNDEFINED) {
+					parent_value->ptr = new_i64(rt_ints);
+				}
+				break;
+				rt_ints->i64s[parent_value->ptr] = rt_ints->i64s[value.ptr];
 			}
 			default: {
 			}
@@ -58,6 +74,15 @@ uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 			if (value.type == STRING && parent_value->type == STRING) {
 				add_strings_w_id(strings, parent_value->ptr, value.ptr);
 			}
+
+			if (value.type == I32 && parent_value->type == I32) {
+				rt_ints->i32s[parent_value->ptr] += rt_ints->i32s[value.ptr];
+			} else if (value.type == I64 && parent_value->type == I64) {
+				rt_ints->i64s[parent_value->ptr] += rt_ints->i64s[value.ptr];
+			} else if (value.type == I32 && parent_value->type == I64) {
+				rt_ints->i64s[parent_value->ptr] += rt_ints->i32s[value.ptr];
+			}
+			// TODO: account resizes from 32 to 64 if integer gets too large
 		}
 		default: {
 		}
