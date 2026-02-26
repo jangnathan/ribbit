@@ -271,12 +271,14 @@ uint8_t process(ctx_t *ctx, char ch) {
 
 				copy->type = ctx->temp_node->type;
 				copy->ptr = ctx->temp_node->ptr;
-				copy->parent_id = ctx->temp_node->parent_id;
+				copy->parent_id = og_id;
 				copy->next_id = ctx->temp_node->next_id;
+				copy->state = ctx->temp_node->state;
 
 				ctx->temp_node->type = ADD;
 				ctx->temp_node->ptr = new_value(values);
 				ctx->temp_node->next_id = copy_id;
+				ctx->temp_node->state = 0;
 
 				uint32_t temp_id = new_node(ast);
 				ctx->temp_node = &ast->array[temp_id];
