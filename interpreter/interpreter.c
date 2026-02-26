@@ -206,6 +206,17 @@ uint8_t process(ctx_t *ctx, char ch) {
 		case ST_LEX_END: {
 			if (ch == '(') {
 			lex_par:
+				ctx->status = ST_NONE;
+
+				if (strcmp(ctx->lex, "if") {
+					ctx->temp_node->type = IF;
+
+					// the condition
+					// if false, then jump to id in ptr
+					ctx->temp_node = append_child(ast);
+					break;
+				}
+
 				ctx->temp_node->type = CALL;
 
 				// if its a function
@@ -224,8 +235,6 @@ uint8_t process(ctx_t *ctx, char ch) {
 						ctx->temp_node = append_child(ast);
 					}
 				}
-
-				ctx->status = ST_NONE;
 			} else if (ch == '=') {
 			lex_equal:
 				ctx->temp_node->type = DECLARATION;
@@ -280,7 +289,11 @@ uint8_t process(ctx_t *ctx, char ch) {
 				ctx->temp_node->state = NS_BACK;
 
 				ctx->status = ST_NONE;
-			} else if (ch == ')') {
+				break;
+			}
+
+			if (ch == ')') {
+				// use the parent effectively
 				if (is_part_of_type(ast, CALL)) {
 					ctx->temp_node->state = NS_END;
 
@@ -294,6 +307,12 @@ uint8_t process(ctx_t *ctx, char ch) {
 				} else {
 					return user_err("unexpected ')'");
 				}
+			} else if (ch == '{') {
+				if (is_part_of_type(ast, IF)) {
+				} else {
+					return user_err("unexpected '{'");
+				}
+
 				// a new statement / ending
 			} else if (is_lex(ch) || ch == '\0') {
 				if (is_part_of_type(ast, DECLARATION)) {
