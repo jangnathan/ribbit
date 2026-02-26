@@ -5,6 +5,7 @@
 #include "value.h"
 
 #include <stdio.h>
+#include <string.h>
 
 node_t *append_child(ast_t *ast) {
 	uint32_t temp_id = ast->len - 1;
@@ -208,7 +209,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 			lex_par:
 				ctx->status = ST_NONE;
 
-				if (strcmp(ctx->lex, "if") {
+				if (strcmp(ctx->lex, "if") == 0) {
 					ctx->temp_node->type = IF;
 
 					// the condition
@@ -263,29 +264,24 @@ uint8_t process(ctx_t *ctx, char ch) {
 
 		st_end:
 			if (ch == '+') {
-				uint32_t temp_id = ast->len - 1;
-				uint32_t operator_id = new_node(ast);
-				node_t *operator = &ast->array[operator_id];
-				node_t *parent = &ast->array[ctx->temp_node->parent_id];
+				uint32_t og_id = ast->len - 1;
 
-				if (parent->next_id == temp_id) {
-					parent->next_id = operator_id;
-				} else {
-					ctx->temp_node->state = NS_NONE;
-					ast->array[temp_id - 2].next_id = operator_id;
-				}
+				uint32_t copy_id = new_node(ast);
+				node_t *copy = &ast->array[copy_id];
 
-				operator->type = ADD;
-				operator->ptr = new_value(values);
-				operator->parent_id = ctx->temp_node->parent_id;
-				operator->next_id = temp_id;
-				ctx->temp_node->parent_id = operator_id;
+				copy->type = ctx->temp_node->type;
+				copy->ptr = ctx->temp_node->ptr;
+				copy->parent_id = ctx->temp_node->parent_id;
+				copy->next_id = ctx->temp_node->next_id;
 
-				uint32_t og_id = temp_id;
-				temp_id = new_node(ast);
+				ctx->temp_node->type = ADD;
+				ctx->temp_node->ptr = new_value(values);
+				ctx->temp_node->next_id = copy_id;
+
+				uint32_t temp_id = new_node(ast);
 				ctx->temp_node = &ast->array[temp_id];
-				ctx->temp_node->parent_id = operator_id;
-				ast->array[og_id].next_id = temp_id;
+				ctx->temp_node->parent_id = og_id;
+				ast->array[copy_id].next_id = temp_id;
 				ctx->temp_node->state = NS_BACK;
 
 				ctx->status = ST_NONE;
