@@ -264,28 +264,46 @@ uint8_t process(ctx_t *ctx, char ch) {
 
 		st_end:
 			if (ch == '+') {
+				node_t *parent = &ast->array[ctx->temp_node->parent_id];
 				uint32_t og_id = ast->len - 1;
 
-				uint32_t copy_id = new_node(ast);
-				node_t *copy = &ast->array[copy_id];
+				if (should_eval(parent->type) && parent->type != PARENTHESIS) {
+					uint32_t oper_id = new_node(ast);
+					node_t *oper = &ast->array[oper_id];
+					ctx->temp_node->state = 0;
+					ctx->temp_node->next_id = oper_id;
 
-				copy->type = ctx->temp_node->type;
-				copy->ptr = ctx->temp_node->ptr;
-				copy->parent_id = og_id;
-				// next id is set
-				copy->state = 0;
+					oper->type = ADD;
+					oper->ptr = new_value(values);
+					oper->parent_id = ctx->temp_node->parent_id;
 
-				ctx->temp_node->type = ADD;
-				ctx->temp_node->ptr = new_value(values);
-				// parent is already set
-				ctx->temp_node->next_id = copy_id;
-				ctx->temp_node->state = 0;
+					uint32_t temp_id = new_node(ast);
+					oper->next_id = temp_id;
+					ctx->temp_node = &ast->array[temp_id];
+					ctx->temp_node->parent_id = oper_id;
+					ctx->temp_node->state = NS_BACK;
+				} else {
+					uint32_t copy_id = new_node(ast);
+					node_t *copy = &ast->array[copy_id];
 
-				uint32_t temp_id = new_node(ast);
-				ctx->temp_node = &ast->array[temp_id];
-				ctx->temp_node->parent_id = og_id;
-				copy->next_id = temp_id;
-				ctx->temp_node->state = NS_BACK;
+					copy->type = ctx->temp_node->type;
+					copy->ptr = ctx->temp_node->ptr;
+					copy->parent_id = og_id;
+					// next id is set
+					copy->state = 0;
+
+					ctx->temp_node->type = ADD;
+					ctx->temp_node->ptr = new_value(values);
+					// parent is already set
+					ctx->temp_node->next_id = copy_id;
+					ctx->temp_node->state = 0;
+
+					uint32_t temp_id = new_node(ast);
+					ctx->temp_node = &ast->array[temp_id];
+					ctx->temp_node->parent_id = og_id;
+					copy->next_id = temp_id;
+					ctx->temp_node->state = NS_BACK;
+				}
 
 				ctx->status = ST_NONE;
 				break;

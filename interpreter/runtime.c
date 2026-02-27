@@ -36,7 +36,7 @@ uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 	// == string && != add then stop
 
 	if (parent.type != ADD && value.type == STRING) {
-		return user_err("Cannot perform any other arithmetic with string than add");
+		return user_err("Cannot perform any other arithmetic with string than add\n");
 	}
 
 	if (parent.next_id == id) {
