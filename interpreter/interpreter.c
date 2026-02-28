@@ -3,7 +3,6 @@
 #include "user_error.h"
 #include "helpers.h"
 #include "value.h"
-
 #include <stdio.h>
 #include <string.h>
 
@@ -83,9 +82,8 @@ uint8_t lex_handle_ref(ctx_t *ctx, char ch) {
 	return 1;
 }
 
-uint8_t is_part_of_type(ast_t *ast, enum NODE_TYPE type) {
-	uint32_t temp_id = ast->len - 1;
-	node_t temp_node = ast->array[temp_id];
+uint8_t is_part_of_type(ast_t *ast, node_t *node, enum NODE_TYPE type) {
+	node_t temp_node = *node;
 
 	temp_node = ast->array[temp_node.parent_id];
 	while (should_eval(temp_node.type) || temp_node.type == type) {
@@ -270,15 +268,19 @@ uint8_t process(ctx_t *ctx, char ch) {
 				if (should_eval(parent->type) && parent->type != PARENTHESIS) {
 					uint32_t oper_id = new_node(ast);
 					node_t *oper = &ast->array[oper_id];
-					ctx->temp_node->state = 0;
-					ctx->temp_node->next_id = oper_id;
+					node_t *grandpa = &ast->array[parent->parent_id];
+
+					grandpa->next_id = oper_id;
+					oper->next_id = ctx->temp_node->parent_id;
+					oper->parent_id = parent->parent_id;
+					parent->parent_id = oper_id;
 
 					oper->type = ADD;
 					oper->ptr = new_value(values);
-					oper->parent_id = ctx->temp_node->parent_id;
 
 					uint32_t temp_id = new_node(ast);
-					oper->next_id = temp_id;
+					ctx->temp_node->next_id = temp_id;
+
 					ctx->temp_node = &ast->array[temp_id];
 					ctx->temp_node->parent_id = oper_id;
 					ctx->temp_node->state = NS_BACK;
@@ -311,7 +313,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 
 			if (ch == ')') {
 				// use the parent effectively
-				if (is_part_of_type(ast, CALL)) {
+				if (is_part_of_type(ast, ctx->temp_node, CALL)) {
 					ctx->temp_node->state = NS_END;
 
 					uint32_t og_id = ast->len - 1;
@@ -325,14 +327,14 @@ uint8_t process(ctx_t *ctx, char ch) {
 					return user_err("unexpected ')'");
 				}
 			} else if (ch == '{') {
-				if (is_part_of_type(ast, IF)) {
+				if (is_part_of_type(ast, ctx->temp_node, IF)) {
 				} else {
 					return user_err("unexpected '{'");
 				}
 
 				// a new statement / ending
 			} else if (is_lex(ch) || ch == '\0') {
-				if (is_part_of_type(ast, DECLARATION)) {
+				if (is_part_of_type(ast, ctx->temp_node, DECLARATION)) {
 					ctx->temp_node->state = NS_END;
 
 					uint32_t og_id = ast->len - 1;

@@ -36,8 +36,9 @@ int main(int argc, char *argv[]) {
 
 	if (strcmp(command, "run") == 0) {
 		run(&preter);
-	} else if (strcmp(command, "print") == 0) {
-		print(&preter);
+	} else if (strcmp(command, "debug") == 0) {
+		run(&preter);
+		print_chain(&preter);
 	} else if (strcmp(command, "chain") == 0) {
 		print_chain(&preter);
 	}

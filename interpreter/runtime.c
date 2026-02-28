@@ -73,16 +73,43 @@ uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 		case ADD: {
 			if (value.type == STRING && parent_value->type == STRING) {
 				add_strings_w_id(strings, parent_value->ptr, value.ptr);
+			} else if (value.type == I32 && parent_value->type == STRING) {
+			} else if (value.type == I64 && parent_value->type == STRING) {
 			}
 
+			// number things
 			if (value.type == I32 && parent_value->type == I32) {
-				rt_ints->i32s[parent_value->ptr] += rt_ints->i32s[value.ptr];
+				int32_t i32_1 = rt_ints->i32s[parent_value->ptr];
+				int32_t i32_2 = rt_ints->i32s[value.ptr];
+
+				if (i32_1 > INT32_MAX - i32_2) {
+					// turn into i64
+					delete_i32(rt_ints, parent_value->ptr);
+					parent_value->ptr = new_i64(rt_ints);
+					rt_ints->i64s[parent_value->ptr] += i32_2;
+				} else {
+					rt_ints->i32s[parent_value->ptr] = i32_1 + i32_2;
+				}
 			} else if (value.type == I64 && parent_value->type == I64) {
+				int32_t i64_1 = rt_ints->i64s[parent_value->ptr];
+				int32_t i64_2 = rt_ints->i64s[value.ptr];
+				if (i64_1 > INT64_MAX - i64_2) {
+					return user_err("integer is too large");
+				}
 				rt_ints->i64s[parent_value->ptr] += rt_ints->i64s[value.ptr];
 			} else if (value.type == I32 && parent_value->type == I64) {
 				rt_ints->i64s[parent_value->ptr] += rt_ints->i32s[value.ptr];
+			} else if (value.type == I64 && parent_value->type == I32) {
+				delete_i32(rt_ints, parent_value->ptr);
+				parent_value->ptr = new_i64(rt_ints);
+				int32_t i64_1 = rt_ints->i64s[parent_value->ptr];
+				int32_t i64_2 = rt_ints->i64s[value.ptr];
+				if (i64_1 > INT64_MAX - i64_2) {
+					return user_err("integer is too large");
+				}
+				rt_ints->i64s[parent_value->ptr] += rt_ints->i64s[value.ptr];
+
 			}
-			// TODO: account resizes from 32 to 64 if integer gets too large
 		}
 		default: {
 		}
@@ -124,15 +151,22 @@ uint8_t eval_exp(interpreter_t *preter, uint32_t node_id) {
 			add2queue(&queue, id);
 		} else {
 			if (!activate_node(preter, id)) return 0;
+			if (temp_node.state == NS_BACK || temp_node.state == NS_END) {
+				if (queue.len > 0) {
+					queue.len--;
+					uint32_t node_id = queue.array[queue.len];
+					if (!activate_node(preter, node_id)) return 0;
+				}
+			}
 		}
 
-		if (temp_node.state == NS_BACK || temp_node.state == NS_END) {
+		/*if (temp_node.state == NS_BACK || temp_node.state == NS_END) {
 			for (uint8_t i = 0; i < queue.len; i++){
 				uint32_t node_id = queue.array[queue.len - i - 1];
 				if (!activate_node(preter, node_id)) return 0;
 			}
 			queue.len = 0;
-		}
+		}*/
 	}
 	return 1;
 }
@@ -235,39 +269,15 @@ uint8_t print_node(interpreter_t *preter, uint32_t id) {
 			printf("end");
 			break;
 	}
-	if (temp_node.type == VALUE) {
-		printf("\nVALUE: ");
+	if (temp_node.type == VALUE || should_eval(temp_node.type)) {
+		printf("\nVALUE (id %d): ", temp_node.ptr);
 		value_t value = preter->values.array[temp_node.ptr];
 		print_value(preter, value);
+		if (value.type != UNDEFINED) {
+			printf("[%d]\n", value.ptr);
+		}
 	}
 	printf("\n");
-	return 1;
-}
-
-uint8_t print(interpreter_t *preter) {
-	printf("-- AST STATS --\n");
-	ast_t ast = preter->ast;
-	uint32_t id = 0;
-	node_t *temp_node = &ast.array[id];
-	printf("ast len: %d\n", ast.len);
-	printf("-- TREE --\n");
-	uint8_t idx = 0;
-	while (temp_node->type != END) {
-		for (uint8_t i = 0; i < idx; i++) {
-			printf("  ");
-		}
-		print_node(preter, id);
-
-		if (temp_node->state > 0) {
-			idx--;
-		}
-		if (temp_node->next_id != 0 && temp_node->state == NS_END) {
-			idx++;
-		}
-
-		id = temp_node->next_id;
-		temp_node = &ast.array[id];
-	}
 	return 1;
 }
 
