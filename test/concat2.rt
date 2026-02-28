@@ -1,0 +1,2 @@
+concat = "hello " + "world" + " awesome"
+print(concat)
