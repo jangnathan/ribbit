@@ -37,8 +37,12 @@ void add_strings_w_id(strings_t *str, uint32_t target_id, uint32_t model_id) {
 	string_t *target = &str->array[target_id];
 	string_t model = str->array[model_id];
 
-	if (model.size > target->size) {
-		target->size = model.size * 2;
+	if (model.len + target->len > model.size) {
+		if (model.size >= target->size) {
+			target->size = model.size * 2;
+		} else {
+			target->size *= 2;
+		}
 		target->array = realloc(target->array, sizeof(char) * target->size);
 	}
 
@@ -53,13 +57,13 @@ void copy_string_w_id(strings_t *str, uint32_t target_id, uint32_t model_id) {
 	string_t *target = &str->array[target_id];
 	string_t model = str->array[model_id];
 
-	target->len = model.len;
 	if (model.size > target->size) {
 		target->size = model.size;
 		target->array = realloc(target->array, sizeof(char) * target->size);
 	}
 
-	for (int i = 0; i < target->len; i++) {
+	for (int i = 0; i < model.len; i++) {
 		target->array[i] = model.array[i];
 	}
+	target->len = model.len;
 }
