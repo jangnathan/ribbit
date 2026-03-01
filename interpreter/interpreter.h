@@ -25,6 +25,8 @@ enum STATUS {
 	ST_NUMBER,
 	ST_LEX,
 	ST_LEX_END,
+	ST_EQUAL_SYMBOL,
+	ST_EQUAL_SYMBOL_LEX,
 	ST_END
 };
 
@@ -34,6 +36,7 @@ typedef struct {
 	uint8_t i;
 	char lex[MAX_LEX_LEN];
 	enum STATUS status;
+	char last_ch;
 } ctx_t;
 
 void interpreter_init(interpreter_t *preter);

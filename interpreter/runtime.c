@@ -128,7 +128,7 @@ void add2queue(queue_t *queue, uint32_t id) {
 	// take care of max queue issues at lexer-time
 }
 
-uint8_t eval_exp(interpreter_t *preter, uint32_t node_id) {
+uint8_t eval_exp(interpreter_t *preter, uint32_t node_id, uint32_t *end_id) {
 	ast_t ast = preter->ast;
 	node_t temp_node = ast.array[node_id];
 	uint32_t id = node_id;
@@ -168,6 +168,7 @@ uint8_t eval_exp(interpreter_t *preter, uint32_t node_id) {
 			queue.len = 0;
 		}*/
 	}
+	*end_id = id;
 	return 1;
 }
 
@@ -195,35 +196,10 @@ void print_value(interpreter_t *preter, value_t value) {
 	}
 }
 
-uint8_t handle_call(interpreter_t *preter, node_t *temp_node) {
-	ast_t ast = preter->ast;
-	func_t *func = &preter->funcs.array[temp_node->ptr];
-
-	// first param
-	if (!eval_exp(preter, temp_node->next_id)) return 0;
-	func->params[0].ptr = ast.array[temp_node->next_id].ptr;
-
-	if (strcmp(func->name, "print") == 0) {
-		value_t value = preter->values.array[func->params[0].ptr];
-		print_value(preter, value);
-	}
-
-	return 1;
-}
-
-uint8_t handle_declare(interpreter_t *preter, node_t *temp_node) {
-	ast_t ast = preter->ast;
-	vars_t vars = preter->vars;
-	var_t *var = &vars.array[temp_node->ptr];
-
-	eval_exp(preter, temp_node->next_id);
-
-	var->ptr = ast.array[temp_node->next_id].ptr;
-	return 1;
-}
-
 uint8_t run(interpreter_t *preter) {
 	ast_t ast = preter->ast;
+	vars_t vars = preter->vars;
+	values_t values = preter->values;
 	node_t *temp_node = &ast.array[0];
 	printf("-- RUNTIME --\n");
 	while (temp_node->type != END) {
@@ -233,11 +209,41 @@ uint8_t run(interpreter_t *preter) {
 				break;
 			}
 			case CALL: {
-				handle_call(preter, temp_node);
+				func_t *func = &preter->funcs.array[temp_node->ptr];
+				uint32_t end_id;
+
+				// first param
+				if (!eval_exp(preter, temp_node->next_id, &end_id)) return 0;
+				func->params[0].ptr = ast.array[temp_node->next_id].ptr;
+
+				if (strcmp(func->name, "print") == 0) {
+					value_t value = preter->values.array[func->params[0].ptr];
+					print_value(preter, value);
+				}
 				break;
 			}
 			case DECLARATION: {
-				handle_declare(preter, temp_node);
+				var_t *var = &vars.array[temp_node->ptr];
+				uint32_t end_id;
+
+				eval_exp(preter, temp_node->next_id, &end_id);
+				var->ptr = ast.array[temp_node->next_id].ptr;
+
+				temp_node = &ast.array[end_id];
+				break;
+			}
+			case IF: {
+				uint32_t end_id;
+				eval_exp(preter, temp_node->ptr, &end_id);
+				value_t val = values.array[temp_node->ptr];
+
+				if (val.type == BOOL && val.ptr != 0) {
+					temp_node = &ast.array[temp_node->ptr];
+					continue;
+					// stop the next id traversal
+				}
+
+				temp_node = &ast.array[end_id];
 				break;
 			}
 			default: {

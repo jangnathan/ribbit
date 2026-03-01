@@ -69,6 +69,22 @@ uint8_t lex_handle_ref(ctx_t *ctx, char ch) {
 		return user_err("unexpected character");
 	}
 
+	if (strcmp(ctx->lex, "true") == 0) {
+		ctx->temp_node->type = VALUE;
+		uint16_t value_id = new_value(&ctx->preter->values);
+		ctx->temp_node->ptr = value_id;
+		ctx->preter->values.array[value_id].type = BOOL;
+		ctx->preter->values.array[value_id].ptr = 1;
+		return 1;
+	} else if (strcmp(ctx->lex, "false") == 0) {
+		ctx->temp_node->type = VALUE;
+		uint16_t value_id = new_value(&ctx->preter->values);
+		ctx->temp_node->ptr = value_id;
+		ctx->preter->values.array[value_id].type = BOOL;
+		ctx->preter->values.array[value_id].ptr = 0;
+		return 1;
+	}
+
 	vars_t *vars = &ctx->preter->vars;
 
 	int32_t var_id = get_var(vars, ctx->lex);
@@ -90,6 +106,67 @@ uint8_t is_part_of_type(ast_t *ast, node_t *node, enum NODE_TYPE type) {
 	}
 	return parent.type == type;
 }
+enum NODE_TYPE get_higher_id(ast_t *ast, node_t *node) {
+	node_t parent = ast->array[node->parent_id];
+
+	if (should_eval(parent.type)) {
+		return parent.parent_id;
+	}
+	return node->parent_id;
+}
+
+void build_equal_node(ctx_t *ctx) {
+}
+void build_add_node(ctx_t *ctx) {
+	interpreter_t *preter = ctx->preter;
+	ast_t *ast = &preter->ast;
+	values_t *values = &preter->values;
+
+	node_t *parent = &ast->array[ctx->temp_node->parent_id];
+	uint32_t og_id = ast->len - 1;
+
+	if (should_eval(parent->type) && parent->type != PARENTHESIS) {
+		uint32_t oper_id = new_node(ast);
+		node_t *oper = &ast->array[oper_id];
+		node_t *grandpa = &ast->array[parent->parent_id];
+
+		grandpa->next_id = oper_id;
+		oper->next_id = ctx->temp_node->parent_id;
+		oper->parent_id = parent->parent_id;
+		parent->parent_id = oper_id;
+
+		oper->type = ADD;
+		oper->ptr = new_value(values);
+
+		uint32_t temp_id = new_node(ast);
+		ctx->temp_node->next_id = temp_id;
+
+		ctx->temp_node = &ast->array[temp_id];
+		ctx->temp_node->parent_id = oper_id;
+		ctx->temp_node->state = NS_BACK;
+	} else {
+		uint32_t copy_id = new_node(ast);
+		node_t *copy = &ast->array[copy_id];
+
+		copy->type = ctx->temp_node->type;
+		copy->ptr = ctx->temp_node->ptr;
+		copy->parent_id = og_id;
+		// next id is set
+		copy->state = 0;
+
+		ctx->temp_node->type = ADD;
+		ctx->temp_node->ptr = new_value(values);
+		// parent is already set
+		ctx->temp_node->next_id = copy_id;
+		ctx->temp_node->state = 0;
+
+		uint32_t temp_id = new_node(ast);
+		ctx->temp_node = &ast->array[temp_id];
+		ctx->temp_node->parent_id = og_id;
+		copy->next_id = temp_id;
+		ctx->temp_node->state = NS_BACK;
+	}
+}
 
 uint8_t process(ctx_t *ctx, char ch) {
 	interpreter_t *preter = ctx->preter;
@@ -100,7 +177,36 @@ uint8_t process(ctx_t *ctx, char ch) {
 	ast_t *ast = &preter->ast;
 
 	switch (ctx->status) {
+		// it means the previous symbol was an equal sign
+		case ST_EQUAL_SYMBOL_LEX: {
+			if (ch == '=') {
+				build_equal_node(ctx);
+				break;
+			} else {
+				ctx->temp_node->type = DECLARATION;
+
+				int32_t var_id = get_var(vars, ctx->lex);
+				if (var_id == -1) {
+					var_id = new_var(vars, ctx->lex);
+				}
+				ctx->temp_node->ptr = var_id;
+
+				ctx->temp_node = append_child(ast);
+
+				ctx->status = ST_NONE;
+				goto st_none;
+			}
+			break;
+		}
+		case ST_EQUAL_SYMBOL: {
+			if (ch == '=') {
+				build_equal_node(ctx);
+			} else {
+				return user_err("unexpected = symbol");
+			}
+		}
 		case ST_NONE: {
+		st_none:
 			ctx->i = 0;
 			if (is_lex(ch) && !is_num(ch)) {
 				ctx->status = ST_LEX;
@@ -124,10 +230,10 @@ uint8_t process(ctx_t *ctx, char ch) {
 				value_t *value = &values->array[id];
 				value->type = I32;
 				ctx->temp_node->ptr = id;
-				
+
 				if (ch == '-') {
 					ctx->lex[0] = '-';
-					ctx->i = 1;;
+					ctx->i = 1;
 				}
 
 				// create nums later
@@ -179,7 +285,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 				} else if (ch == '(') {
 					goto lex_par;
 				} else if (ch == '=') {
-					goto lex_equal;
+					ctx->status = ST_EQUAL_SYMBOL_LEX;
 				} else {
 					// could be just a variable
 					goto lex_else;
@@ -232,18 +338,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 					}
 				}
 			} else if (ch == '=') {
-			lex_equal:
-				ctx->temp_node->type = DECLARATION;
-
-				int32_t var_id = get_var(vars, ctx->lex);
-				if (var_id == -1) {
-					var_id = new_var(vars, ctx->lex);
-				}
-				ctx->temp_node->ptr = var_id;
-
-				ctx->temp_node = append_child(ast);
-
-				ctx->status = ST_NONE;
+				ctx->status = ST_EQUAL_SYMBOL_LEX;
 			} else if (is_whitespace(ch)) {
 				break;
 			} else {
@@ -256,55 +351,13 @@ uint8_t process(ctx_t *ctx, char ch) {
 		}
 		case ST_END: {
 			if (is_whitespace(ch)) break;
-
 		st_end:
 			if (ch == '+') {
-				node_t *parent = &ast->array[ctx->temp_node->parent_id];
-				uint32_t og_id = ast->len - 1;
-
-				if (should_eval(parent->type) && parent->type != PARENTHESIS) {
-					uint32_t oper_id = new_node(ast);
-					node_t *oper = &ast->array[oper_id];
-					node_t *grandpa = &ast->array[parent->parent_id];
-
-					grandpa->next_id = oper_id;
-					oper->next_id = ctx->temp_node->parent_id;
-					oper->parent_id = parent->parent_id;
-					parent->parent_id = oper_id;
-
-					oper->type = ADD;
-					oper->ptr = new_value(values);
-
-					uint32_t temp_id = new_node(ast);
-					ctx->temp_node->next_id = temp_id;
-
-					ctx->temp_node = &ast->array[temp_id];
-					ctx->temp_node->parent_id = oper_id;
-					ctx->temp_node->state = NS_BACK;
-				} else {
-					uint32_t copy_id = new_node(ast);
-					node_t *copy = &ast->array[copy_id];
-
-					copy->type = ctx->temp_node->type;
-					copy->ptr = ctx->temp_node->ptr;
-					copy->parent_id = og_id;
-					// next id is set
-					copy->state = 0;
-
-					ctx->temp_node->type = ADD;
-					ctx->temp_node->ptr = new_value(values);
-					// parent is already set
-					ctx->temp_node->next_id = copy_id;
-					ctx->temp_node->state = 0;
-
-					uint32_t temp_id = new_node(ast);
-					ctx->temp_node = &ast->array[temp_id];
-					ctx->temp_node->parent_id = og_id;
-					copy->next_id = temp_id;
-					ctx->temp_node->state = NS_BACK;
-				}
-
+				build_add_node(ctx);
 				ctx->status = ST_NONE;
+				break;
+			} else if (ch == '=') {
+				ctx->status = ST_EQUAL_SYMBOL;
 				break;
 			}
 
@@ -325,6 +378,27 @@ uint8_t process(ctx_t *ctx, char ch) {
 				}
 			} else if (ch == '{') {
 				if (is_part_of_type(ast, ctx->temp_node, IF)) {
+					ctx->temp_node->state = NS_END;
+
+					uint32_t if_id = get_higher_id(ast, ctx->temp_node);
+					uint32_t temp_id = new_node(ast);
+					ctx->temp_node->next_id = temp_id;
+					ctx->temp_node = &ast->array[temp_id];
+					ctx->temp_node->parent_id = if_id;
+
+					ctx->status = ST_NONE;
+				} else {
+					return user_err("unexpected '{'");
+				}
+			} else if (ch == '}') {
+				if (is_part_of_type(ast, ctx->temp_node, IF)) {
+					uint32_t if_id = get_higher_id(ast, ctx->temp_node);
+					uint32_t temp_id = new_node(ast);
+					ctx->temp_node->next_id = temp_id;
+					ast->array[if_id].next_id = temp_id;
+					ctx->temp_node = &ast->array[temp_id];
+
+					ctx->status = ST_NONE;
 				} else {
 					return user_err("unexpected '{'");
 				}
@@ -356,8 +430,6 @@ uint8_t process(ctx_t *ctx, char ch) {
 	printf("%c", ch);
 	fflush(stdout);
 #endif
-
-
 	return 1;
 }
 

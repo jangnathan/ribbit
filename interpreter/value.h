@@ -6,7 +6,8 @@ enum DATATYPE {
 	STRING,
 	I32,
 	I64,
-	FLOAT
+	FLOAT,
+	BOOL
 };
 
 typedef struct {
