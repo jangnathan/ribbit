@@ -83,16 +83,12 @@ uint8_t lex_handle_ref(ctx_t *ctx, char ch) {
 }
 
 uint8_t is_part_of_type(ast_t *ast, node_t *node, enum NODE_TYPE type) {
-	node_t temp_node = *node;
+	node_t parent = ast->array[node->parent_id];
 
-	temp_node = ast->array[temp_node.parent_id];
-	while (should_eval(temp_node.type) || temp_node.type == type) {
-		if (temp_node.type == type) {
-			return 1;
-		}
-		temp_node = ast->array[temp_node.parent_id];
+	if (should_eval(parent.type)) {
+		parent = ast->array[parent.parent_id];
 	}
-	return 0;
+	return parent.type == type;
 }
 
 uint8_t process(ctx_t *ctx, char ch) {
@@ -212,7 +208,8 @@ uint8_t process(ctx_t *ctx, char ch) {
 
 					// the condition
 					// if false, then jump to id in ptr
-					ctx->temp_node = append_child(ast);
+					ctx->temp_node->ptr = new_node(ast);
+					ctx->temp_node = &ast->array[ctx->temp_node->ptr];
 					break;
 				}
 
