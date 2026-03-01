@@ -206,7 +206,6 @@ uint8_t run(interpreter_t *preter) {
 	while (temp_node->type != END) {
 		switch (temp_node->type) {
 			case BLOCK: {
-				printf("BLOCK\n");
 				break;
 			}
 			case CALL: {

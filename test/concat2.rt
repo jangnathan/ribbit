@@ -1,2 +1,9 @@
-concat = "hello " + "world" + " awesome" + "my name is" + " hi"
-print(concat)
+str = "hello " + "world" + "h " + "h"+ "h"+ "h"+ "h"+ "h"+ "h"+ "h"+ "h"+"h"
+print(str)
+print(str)
+print(str)
+print(str)
+print(str)
+print(str)
+print(str)
+print(str)

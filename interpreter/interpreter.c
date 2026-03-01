@@ -23,7 +23,7 @@ void interpreter_init(interpreter_t *preter) {
 	#endif
 
 	preter->ast.len = 0;
-	preter->ast.size = 16;
+	preter->ast.size = 64;
 	preter->ast.array = malloc(sizeof(node_t) * preter->ast.size);	
 
 	vars_init(&preter->vars);
@@ -55,6 +55,8 @@ void ctx_init(ctx_t *ctx) {
 
 	// genesis
 	ctx->temp_node = &ast->array[new_node(ast)];
+	ctx->temp_node->type = BLOCK;
+	ctx->temp_node = append_child(ast);
 	ctx->i = 0;
 	ctx->lex[0] = '\0';
 	ctx->status = ST_NONE;
@@ -106,7 +108,7 @@ uint8_t is_part_of_type(ast_t *ast, node_t *node, enum NODE_TYPE type) {
 	}
 	return parent.type == type;
 }
-enum NODE_TYPE get_higher_id(ast_t *ast, node_t *node) {
+uint32_t get_higher_id(ast_t *ast, node_t *node) {
 	node_t parent = ast->array[node->parent_id];
 
 	if (should_eval(parent.type)) {
@@ -366,11 +368,12 @@ uint8_t process(ctx_t *ctx, char ch) {
 				if (is_part_of_type(ast, ctx->temp_node, CALL)) {
 					ctx->temp_node->state = NS_END;
 
-					uint32_t og_id = ast->len - 1;
+					uint32_t top_id = get_higher_id(ast, ctx->temp_node);
 					uint32_t temp_id = new_node(ast);
+					ctx->temp_node->next_id = temp_id;
+
 					ctx->temp_node = &ast->array[temp_id];
-					ctx->temp_node->parent_id = ast->array[ast->array[og_id].parent_id].parent_id;
-					ast->array[og_id].next_id = temp_id;
+					ctx->temp_node->parent_id = ast->array[top_id].parent_id;
 
 					ctx->status = ST_NONE;
 				} else {
@@ -408,11 +411,12 @@ uint8_t process(ctx_t *ctx, char ch) {
 				if (is_part_of_type(ast, ctx->temp_node, DECLARATION)) {
 					ctx->temp_node->state = NS_END;
 
-					uint32_t og_id = ast->len - 1;
+					uint32_t top_id = get_higher_id(ast, ctx->temp_node);
 					uint32_t temp_id = new_node(ast);
+					ctx->temp_node->next_id = temp_id;
+
 					ctx->temp_node = &ast->array[temp_id];
-					ctx->temp_node->parent_id = ast->array[ast->array[og_id].parent_id].parent_id;
-					ast->array[og_id].next_id = temp_id;
+					ctx->temp_node->parent_id = ast->array[top_id].parent_id;
 
 					ctx->status = ST_NONE;
 					if (is_lex(ch)) return process(ctx, ch);

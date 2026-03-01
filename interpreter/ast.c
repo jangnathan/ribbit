@@ -37,6 +37,7 @@ uint32_t new_node(ast_t *ast) {
 	node_t *new = &ast->array[ast->len];
 	ast->len++;
 
+	new->type = BLOCK;
 	new->next_id = 0;
 	new->state = NS_NONE;
 	new->type = END;
