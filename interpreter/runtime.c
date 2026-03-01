@@ -136,6 +136,7 @@ uint8_t eval_exp(interpreter_t *preter, uint32_t node_id, uint32_t *end_id) {
 	queue.len = 0;
 
 	if (!should_eval(temp_node.type)) {
+		*end_id = id;
 		if (temp_node.type == REFERENCE) {
 			var_t var = preter->vars.array[temp_node.ptr];
 			ast.array[node_id].ptr = var.ptr;
@@ -220,6 +221,7 @@ uint8_t run(interpreter_t *preter) {
 					value_t value = preter->values.array[func->params[0].ptr];
 					print_value(preter, value);
 				}
+				temp_node = &ast.array[end_id];
 				break;
 			}
 			case DECLARATION: {
