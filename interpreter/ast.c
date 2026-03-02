@@ -29,11 +29,6 @@ uint8_t should_eval(enum NODE_TYPE type) {
 }
 
 uint32_t new_node(ast_t *ast) {
-	if (ast->len >= ast->size) {
-		ast->size *= 2;
-		ast->array = realloc(ast->array, sizeof(node_t) * ast->size);
-	}
-
 	node_t *new = &ast->array[ast->len];
 	ast->len++;
 
@@ -42,9 +37,13 @@ uint32_t new_node(ast_t *ast) {
 	new->state = NS_NONE;
 	new->type = END;
 
+	if (ast->len >= ast->size) {
+		ast->size *= 2;
+		ast->array = realloc(ast->array, sizeof(node_t) * ast->size);
+	}
+
 	return ast->len - 1;
 }
 
 // should it have pointers to the next node instead?
 // hmmm
-
