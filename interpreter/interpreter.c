@@ -6,15 +6,14 @@
 #include <stdio.h>
 #include <string.h>
 
-node_t *append_child(ast_t *ast) {
-	uint32_t temp_id = ast->len - 1;
+uint32_t append_child(ast_t *ast, uint32_t temp_id) {
 	node_t *temp_node = &ast->array[temp_id];
 	uint32_t new_id = new_node(ast);
 
 	node_t *new = &ast->array[new_id];
 	new->parent_id = temp_id;
 	temp_node->next_id = new_id;
-	return new;
+	return new_id;
 }
 
 void interpreter_init(interpreter_t *preter) {
@@ -54,9 +53,9 @@ void ctx_init(ctx_t *ctx) {
 	ast_t *ast = &ctx->preter->ast;
 
 	// genesis
-	ctx->temp_node = &ast->array[new_node(ast)];
-	ctx->temp_node->type = BLOCK;
-	ctx->temp_node = append_child(ast);
+	ctx->temp_id = new_node(ast);
+	ast->array[0].type = BLOCK;
+	ctx->temp_id = append_child(ast, ctx->temp_id);
 	ctx->i = 0;
 	ctx->lex[0] = '\0';
 	ctx->status = ST_NONE;
@@ -67,21 +66,22 @@ void ctx_init(ctx_t *ctx) {
 }
 
 uint8_t lex_handle_ref(ctx_t *ctx, char ch) {
+	node_t *temp_node = &ctx->preter->ast.array[ctx->temp_id];
 	if (!is_ender(ch)) {
 		return user_err("unexpected character");
 	}
 
 	if (strcmp(ctx->lex, "true") == 0) {
-		ctx->temp_node->type = VALUE;
+		temp_node->type = VALUE;
 		uint16_t value_id = new_value(&ctx->preter->values);
-		ctx->temp_node->ptr = value_id;
+		temp_node->ptr = value_id;
 		ctx->preter->values.array[value_id].type = BOOL;
 		ctx->preter->values.array[value_id].ptr = 1;
 		return 1;
 	} else if (strcmp(ctx->lex, "false") == 0) {
-		ctx->temp_node->type = VALUE;
+		temp_node->type = VALUE;
 		uint16_t value_id = new_value(&ctx->preter->values);
-		ctx->temp_node->ptr = value_id;
+		temp_node->ptr = value_id;
 		ctx->preter->values.array[value_id].type = BOOL;
 		ctx->preter->values.array[value_id].ptr = 0;
 		return 1;
@@ -95,26 +95,28 @@ uint8_t lex_handle_ref(ctx_t *ctx, char ch) {
 		return user_err("variable doesnt exist");
 	}
 
-	ctx->temp_node->type = REFERENCE;
-	ctx->temp_node->ptr = var_id;
+	temp_node->type = REFERENCE;
+	temp_node->ptr = var_id;
 	return 1;
 }
 
-uint8_t is_part_of_type(ast_t *ast, node_t *node, enum NODE_TYPE type) {
-	node_t parent = ast->array[node->parent_id];
+uint8_t is_part_of_type(ast_t *ast, uint32_t id, enum NODE_TYPE type) {
+	node_t node = ast->array[id];
+	node_t parent = ast->array[node.parent_id];
 
 	if (should_eval(parent.type)) {
 		parent = ast->array[parent.parent_id];
 	}
 	return parent.type == type;
 }
-uint32_t get_higher_id(ast_t *ast, node_t *node) {
-	node_t parent = ast->array[node->parent_id];
+uint32_t get_higher_id(ast_t *ast, uint32_t id) {
+	node_t node = ast->array[id];
+	node_t parent = ast->array[node.parent_id];
 
 	if (should_eval(parent.type)) {
 		return parent.parent_id;
 	}
-	return node->parent_id;
+	return node.parent_id;
 }
 
 void build_equal_node(ctx_t *ctx) {
@@ -124,8 +126,8 @@ void build_add_node(ctx_t *ctx) {
 	ast_t *ast = &preter->ast;
 	values_t *values = &preter->values;
 
-	node_t *parent = &ast->array[ctx->temp_node->parent_id];
-	uint32_t og_id = ast->len - 1;
+	node_t *og_node = &ast->array[ctx->temp_id];
+	node_t *parent = &ast->array[og_node->parent_id];
 
 	if (should_eval(parent->type) && parent->type != PARENTHESIS) {
 		uint32_t oper_id = new_node(ast);
@@ -133,40 +135,43 @@ void build_add_node(ctx_t *ctx) {
 		node_t *grandpa = &ast->array[parent->parent_id];
 
 		grandpa->next_id = oper_id;
-		oper->next_id = ctx->temp_node->parent_id;
+		oper->next_id = og_node->parent_id;
 		oper->parent_id = parent->parent_id;
 		parent->parent_id = oper_id;
 
 		oper->type = ADD;
 		oper->ptr = new_value(values);
 
-		uint32_t temp_id = new_node(ast);
-		ctx->temp_node->next_id = temp_id;
+		uint32_t new_id = new_node(ast);
+		node_t *new_node = &ast->array[new_id];
+		new_node->parent_id = oper_id;
+		new_node->state = NS_BACK;
 
-		ctx->temp_node = &ast->array[temp_id];
-		ctx->temp_node->parent_id = oper_id;
-		ctx->temp_node->state = NS_BACK;
+		og_node->next_id = new_id;
+		ctx->temp_id = new_id;
 	} else {
 		uint32_t copy_id = new_node(ast);
 		node_t *copy = &ast->array[copy_id];
 
-		copy->type = ctx->temp_node->type;
-		copy->ptr = ctx->temp_node->ptr;
-		copy->parent_id = og_id;
+		copy->type = og_node->type;
+		copy->ptr = og_node->ptr;
+		copy->parent_id = ctx->temp_id;
 		// next id is set
 		copy->state = 0;
 
-		ctx->temp_node->type = ADD;
-		ctx->temp_node->ptr = new_value(values);
+		og_node->type = ADD;
+		og_node->ptr = new_value(values);
 		// parent is already set
-		ctx->temp_node->next_id = copy_id;
-		ctx->temp_node->state = 0;
+		og_node->next_id = copy_id;
+		og_node->state = 0;
 
-		uint32_t temp_id = new_node(ast);
-		ctx->temp_node = &ast->array[temp_id];
-		ctx->temp_node->parent_id = og_id;
-		copy->next_id = temp_id;
-		ctx->temp_node->state = NS_BACK;
+		uint32_t new_id = new_node(ast);
+		node_t *new_node = &ast->array[new_id];
+		new_node->parent_id = ctx->temp_id;
+
+		ctx->temp_id = new_id;
+		copy->next_id = new_id;
+		new_node->state = NS_BACK;
 	}
 }
 
@@ -185,15 +190,15 @@ uint8_t process(ctx_t *ctx, char ch) {
 				build_equal_node(ctx);
 				break;
 			} else {
-				ctx->temp_node->type = DECLARATION;
+				ast->array[ctx->temp_id].type = DECLARATION;
 
 				int32_t var_id = get_var(vars, ctx->lex);
 				if (var_id == -1) {
 					var_id = new_var(vars, ctx->lex);
 				}
-				ctx->temp_node->ptr = var_id;
+				ast->array[ctx->temp_id].ptr = var_id;
 
-				ctx->temp_node = append_child(ast);
+				ctx->temp_id = append_child(ast, ctx->temp_id);
 
 				ctx->status = ST_NONE;
 				goto st_none;
@@ -216,22 +221,22 @@ uint8_t process(ctx_t *ctx, char ch) {
 			} else if (ch == '"') {
 				ctx->status = ST_STRING;
 
-				ctx->temp_node->type = VALUE;
+				ast->array[ctx->temp_id].type = VALUE;
 				uint16_t id = new_value(values);
 				value_t *value = &values->array[id];
 				value->type = STRING;
-				ctx->temp_node->ptr = id;
+				ast->array[ctx->temp_id].ptr = id;
 
 				id = new_string(strings);
 				value->ptr = id;
 			} else if (is_num(ch) || ch == '-') {
 				ctx->status = ST_NUMBER;
 
-				ctx->temp_node->type = VALUE;
+				ast->array[ctx->temp_id].type = VALUE;
 				uint16_t id = new_value(values);
 				value_t *value = &values->array[id];
 				value->type = I32;
-				ctx->temp_node->ptr = id;
+				ast->array[ctx->temp_id].ptr = id;
 
 				if (ch == '-') {
 					ctx->lex[0] = '-';
@@ -249,7 +254,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 				ctx->lex[ctx->i] = ch;
 				ctx->i++;
 			} else {
-				value_t *value = &values->array[ctx->temp_node->ptr];
+				value_t *value = &values->array[ast->array[ctx->temp_id].ptr];
 				if (ctx->i >= 9) {
 					value->type = I64;
 				}
@@ -296,7 +301,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 			break;
 		}
 		case ST_STRING: {
-			value_t value = values->array[ctx->temp_node->ptr];
+			value_t value = values->array[ast->array[ctx->temp_id].ptr];
 			string_t *str = &strings->array[value.ptr];
 			if (ch == '"') {
 				ctx->status = ST_END;
@@ -312,31 +317,32 @@ uint8_t process(ctx_t *ctx, char ch) {
 				ctx->status = ST_NONE;
 
 				if (strcmp(ctx->lex, "if") == 0) {
-					ctx->temp_node->type = IF;
+					ast->array[ctx->temp_id].type = IF;
 
 					// the condition
 					// if false, then jump to id in ptr
-					ctx->temp_node->ptr = new_node(ast);
-					ctx->temp_node = &ast->array[ctx->temp_node->ptr];
+					uint32_t new_id = new_node(ast);
+					ast->array[ctx->temp_id].ptr = new_id;
+					ctx->temp_id = new_id;
 					break;
 				}
 
-				ctx->temp_node->type = CALL;
+				ast->array[ctx->temp_id].type = CALL;
 
 				// if its a function
 				int32_t func_id = get_func(funcs, ctx->lex);
 				if (func_id == -1) return user_err("function doesnt exist");
-				ctx->temp_node->ptr = func_id;
+				ast->array[ctx->temp_id].ptr = func_id;
 
 				func_t func = funcs->array[func_id];
 				if (func.n_param > 0) {
 					if (func.n_param == 1) {
-						ctx->temp_node = append_child(ast);
+						ctx->temp_id = append_child(ast, ctx->temp_id);
 					} else {
-						ctx->temp_node = append_child(ast);
-						ctx->temp_node->type = PARENTHESIS;
+						ctx->temp_id = append_child(ast, ctx->temp_id);
+						ast->array[ctx->temp_id].type = PARENTHESIS;
 
-						ctx->temp_node = append_child(ast);
+						ctx->temp_id = append_child(ast, ctx->temp_id);
 					}
 				}
 			} else if (ch == '=') {
@@ -365,41 +371,46 @@ uint8_t process(ctx_t *ctx, char ch) {
 
 			if (ch == ')') {
 				// use the parent effectively
-				if (is_part_of_type(ast, ctx->temp_node, CALL)) {
-					ctx->temp_node->state = NS_END;
+				if (is_part_of_type(ast, ctx->temp_id, CALL)) {
+					ast->array[ctx->temp_id].state = NS_END;
+					uint32_t new_id = new_node(ast);
 
-					uint32_t top_id = get_higher_id(ast, ctx->temp_node);
-					uint32_t temp_id = new_node(ast);
-					ctx->temp_node->next_id = temp_id;
+					node_t *new_node = &ast->array[new_id];
 
-					ctx->temp_node = &ast->array[temp_id];
-					ctx->temp_node->parent_id = ast->array[top_id].parent_id;
+					uint32_t top_id = get_higher_id(ast, ctx->temp_id);
+
+					ast->array[ctx->temp_id].next_id = new_id;
+					ctx->temp_id = new_id;
+					new_node->parent_id = ast->array[top_id].parent_id;
 
 					ctx->status = ST_NONE;
 				} else {
 					return user_err("unexpected ')'");
 				}
 			} else if (ch == '{') {
-				if (is_part_of_type(ast, ctx->temp_node, IF)) {
-					ctx->temp_node->state = NS_END;
+				if (is_part_of_type(ast, ctx->temp_id, IF)) {
+					ast->array[ctx->temp_id].state = NS_END;
 
-					uint32_t if_id = get_higher_id(ast, ctx->temp_node);
-					uint32_t temp_id = new_node(ast);
-					ctx->temp_node->next_id = temp_id;
-					ctx->temp_node = &ast->array[temp_id];
-					ctx->temp_node->parent_id = if_id;
+					uint32_t new_id = new_node(ast);
+					node_t *new_node = &ast->array[new_id];
+
+					uint32_t if_id = get_higher_id(ast, ctx->temp_id);
+					ast->array[ctx->temp_id].next_id = new_id;
+					ctx->temp_id = new_id;
+					new_node->parent_id = if_id;
 
 					ctx->status = ST_NONE;
 				} else {
 					return user_err("unexpected '{'");
 				}
 			} else if (ch == '}') {
-				if (is_part_of_type(ast, ctx->temp_node, IF)) {
-					uint32_t if_id = get_higher_id(ast, ctx->temp_node);
-					uint32_t temp_id = new_node(ast);
-					ctx->temp_node->next_id = temp_id;
-					ast->array[if_id].next_id = temp_id;
-					ctx->temp_node = &ast->array[temp_id];
+				if (is_part_of_type(ast, ctx->temp_id, IF)) {
+					uint32_t new_id = new_node(ast);
+
+					uint32_t if_id = get_higher_id(ast, ctx->temp_id);
+					ast->array[ctx->temp_id].next_id = new_id;
+					ast->array[if_id].next_id = new_id;
+					ctx->temp_id = new_id;
 
 					ctx->status = ST_NONE;
 				} else {
@@ -408,15 +419,16 @@ uint8_t process(ctx_t *ctx, char ch) {
 
 				// a new statement / ending
 			} else if (is_lex(ch) || ch == '\0') {
-				if (is_part_of_type(ast, ctx->temp_node, DECLARATION)) {
-					ctx->temp_node->state = NS_END;
+				if (is_part_of_type(ast, ctx->temp_id, DECLARATION)) {
+					ast->array[ctx->temp_id].state = NS_END;
 
-					uint32_t top_id = get_higher_id(ast, ctx->temp_node);
-					uint32_t temp_id = new_node(ast);
-					ctx->temp_node->next_id = temp_id;
+					uint32_t top_id = get_higher_id(ast, ctx->temp_id);
+					uint32_t new_id = new_node(ast);
+					node_t *new_node = &ast->array[new_id];
+					ast->array[ctx->temp_id].next_id = new_id;
 
-					ctx->temp_node = &ast->array[temp_id];
-					ctx->temp_node->parent_id = ast->array[top_id].parent_id;
+					ctx->temp_id = new_id;
+					new_node->parent_id = ast->array[top_id].parent_id;
 
 					ctx->status = ST_NONE;
 					if (is_lex(ch)) return process(ctx, ch);

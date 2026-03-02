@@ -32,7 +32,7 @@ enum STATUS {
 
 typedef struct {
 	interpreter_t *preter;
-	node_t *temp_node;
+	uint32_t temp_id;
 	uint8_t i;
 	char lex[MAX_LEX_LEN];
 	enum STATUS status;
