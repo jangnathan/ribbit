@@ -16,13 +16,18 @@ enum NODE_TYPE {
 	// exp
 	ADD,
 	SUB,
+	PARENTHESIS, // just to group things together
 	EQUAL,
 	NOT_EQUAL,
-	PARENTHESIS // just to group things together
+	GREATER,
+	LESS,
+	GREATER_EQUAL,
+	LESS_EQUAL
 };
 void log_nodetype(enum NODE_TYPE type);
 
 uint8_t should_eval(enum NODE_TYPE type);
+uint8_t is_compare(enum NODE_TYPE type);
 
 enum NODE_STATE {
 	NS_NONE,

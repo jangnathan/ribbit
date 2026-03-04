@@ -22,10 +22,11 @@ void log_nodetype(enum NODE_TYPE type) {
 }
 
 uint8_t should_eval(enum NODE_TYPE type) {
-	if (type >= ADD) {
-		return 1;
-	}
-	return 0;
+	return type >= ADD;
+}
+
+uint8_t is_compare(enum NODE_TYPE type) {
+	return type >= EQUAL;
 }
 
 uint32_t new_node(ast_t *ast) {
