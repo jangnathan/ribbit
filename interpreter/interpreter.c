@@ -102,24 +102,64 @@ uint8_t lex_handle_ref(ctx_t *ctx, char ch) {
 
 uint8_t is_part_of_type(ast_t *ast, uint32_t id, enum NODE_TYPE type) {
 	node_t node = ast->array[id];
-	node_t parent = ast->array[node.parent_id];
+	node = ast->array[node.parent_id];
 
-	if (should_eval(parent.type)) {
-		parent = ast->array[parent.parent_id];
+	while (should_eval(node.type)) {
+		if (node.parent_id == 0) {
+			return 0;
+		}
+
+		node = ast->array[node.parent_id];
 	}
-	return parent.type == type;
+
+	return node.type == type;
 }
 uint32_t get_higher_id(ast_t *ast, uint32_t id) {
-	node_t node = ast->array[id];
-	node_t parent = ast->array[node.parent_id];
+	uint32_t i = id;
+	node_t node = ast->array[i];
 
-	if (should_eval(parent.type)) {
-		return parent.parent_id;
+	while (should_eval(node.type)) {
+		if (node.parent_id == 0) {
+			return 0;
+		}
+		i = node.parent_id;
+		node = ast->array[i];
 	}
-	return node.parent_id;
+
+	return i;
 }
 
 void build_equal_node(ctx_t *ctx) {
+	interpreter_t *preter = ctx->preter;
+	ast_t *ast = &preter->ast;
+	values_t *values = &preter->values;
+
+	node_t *og_node = &ast->array[ctx->temp_id];
+
+	uint32_t root_id = og_node->parent_id;
+	node_t *root_node = &ast->array[root_id];
+	while (should_eval(root_node->type)) {
+		root_id = root_node->parent_id;
+		root_node = &ast->array[root_id];
+	}
+
+	uint32_t oper_id = new_node(ast);
+	node_t *oper = &ast->array[oper_id];
+	oper->type = EQUAL;
+	oper->ptr = new_value(values);
+
+	oper->next_id = root_node->next_id;
+	root_node->next_id = oper_id;
+	oper->parent_id = root_id;
+	og_node->parent_id = oper_id;
+
+	uint32_t new_id = new_node(ast);
+	node_t *new = &ast->array[new_id];
+	new->parent_id = oper_id;
+	new->state = NS_BACK;
+
+	og_node->next_id = new_id;
+	ctx->temp_id = new_id;
 }
 void build_add_node(ctx_t *ctx) {
 	interpreter_t *preter = ctx->preter;
@@ -129,7 +169,7 @@ void build_add_node(ctx_t *ctx) {
 	node_t *og_node = &ast->array[ctx->temp_id];
 	node_t *parent = &ast->array[og_node->parent_id];
 
-	if (should_eval(parent->type) && parent->type != PARENTHESIS) {
+	if (should_eval(parent->type) && parent->type != EQUAL) {
 		uint32_t oper_id = new_node(ast);
 		node_t *oper = &ast->array[oper_id];
 		node_t *grandpa = &ast->array[parent->parent_id];
@@ -188,6 +228,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 		case ST_EQUAL_SYMBOL_LEX: {
 			if (ch == '=') {
 				build_equal_node(ctx);
+				ctx->status = ST_NONE;
 				break;
 			} else {
 				ast->array[ctx->temp_id].type = DECLARATION;
@@ -208,6 +249,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 		case ST_EQUAL_SYMBOL: {
 			if (ch == '=') {
 				build_equal_node(ctx);
+				ctx->status = ST_NONE;
 			} else {
 				return user_err("unexpected = symbol");
 			}
