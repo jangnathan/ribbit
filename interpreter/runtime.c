@@ -204,24 +204,24 @@ void print_value(interpreter_t *preter, value_t value) {
 		case STRING: {
 			string_t content = preter->strings.array[value.ptr];
 			content.array[content.len] = '\0';
-			printf("%s\n", content.array);
+			printf("%s", content.array);
 			break;
 		}
 		case I32: {
 			int32_t i32 = preter->rt_ints.i32s[value.ptr];
-			printf("%d\n", i32);
+			printf("%d", i32);
 			break;
 		}
 		case I64: {
 			int64_t i64 = preter->rt_ints.i64s[value.ptr];
-			printf("%lld\n", i64);
+			printf("%lld", i64);
 			break;
 		}
 		case BOOL: {
 			if (value.ptr) {
-				printf("true\n");
+				printf("true");
 			} else {
-				printf("false\n");
+				printf("false");
 			}
 			break;
 		}
@@ -253,6 +253,7 @@ uint8_t run(interpreter_t *preter) {
 				if (strcmp(func->name, "print") == 0) {
 					value_t value = preter->values.array[func->params[0].ptr];
 					print_value(preter, value);
+					printf("\n");
 				}
 				temp_node = &ast.array[end_id];
 				break;
@@ -314,6 +315,7 @@ uint8_t print_node(interpreter_t *preter, uint32_t id) {
 		printf("\nVALUE (id %d): ", temp_node.ptr);
 		value_t value = preter->values.array[temp_node.ptr];
 		print_value(preter, value);
+		printf("\n");
 		if (value.type != UNDEFINED) {
 			printf("[%d]\n", value.ptr);
 		}
