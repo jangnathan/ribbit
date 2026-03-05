@@ -13,9 +13,13 @@ char *nodetype_string[] = {
 	"REFERENCE",
 	"ADD",
 	"SUB",
+	"PARENTHESIS",
 	"EQUAL",
 	"NOT_EQUAL",
-	"PARENTHESIS"
+	"GREATER",
+	"LESS",
+	"GREATER_EQUAL",
+	"LESS_EQUAL"
 };
 void log_nodetype(enum NODE_TYPE type) {
 	printf("%s", nodetype_string[(uint8_t)type]);

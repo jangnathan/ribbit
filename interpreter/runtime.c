@@ -40,6 +40,8 @@ uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 	}
 
 	if (parent.next_id == id) {
+		if (is_compare(parent.type)) return 1;
+
 		switch (value.type) {
 			case STRING: {
 				if (parent_value->type == UNDEFINED) {
@@ -110,6 +112,30 @@ uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 				rt_ints->i64s[parent_value->ptr] += rt_ints->i64s[value.ptr];
 
 			}
+			break;
+		}
+		case EQUAL: {
+			value_t val_first = values.array[ast.array[parent.next_id].ptr];
+
+			int64_t l;
+			int64_t r;
+			if (val_first.type == I32) {
+				l = rt_ints->i32s[val_first.ptr];
+			} else if (val_first.type == I64) {
+				l = rt_ints->i64s[val_first.ptr];
+			} else if (val_first.type == BOOL) {
+				l = val_first.ptr;
+			}
+			if (value.type == I32) {
+				r = rt_ints->i32s[value.ptr];
+			} else if (value.type == I64) {
+				r = rt_ints->i64s[value.ptr];
+			} else if (value.type == BOOL) {
+				r = value.ptr;
+			}
+
+			parent_value->ptr = r == l;
+			break;
 		}
 		default: {
 		}
@@ -189,6 +215,14 @@ void print_value(interpreter_t *preter, value_t value) {
 		case I64: {
 			int64_t i64 = preter->rt_ints.i64s[value.ptr];
 			printf("%lld\n", i64);
+			break;
+		}
+		case BOOL: {
+			if (value.ptr) {
+				printf("true\n");
+			} else {
+				printf("false\n");
+			}
 			break;
 		}
 		default: {

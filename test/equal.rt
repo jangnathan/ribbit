@@ -1,5 +1,8 @@
 ten = 10
 
 my_var = 1 + 2 == 2 + 1
+
 more = 1 == 1 == 2 == 3
 
+success = 1 == 1
+success2 = 1 + 2 == 3

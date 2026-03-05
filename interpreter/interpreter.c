@@ -114,6 +114,8 @@ uint8_t is_part_of_type(ast_t *ast, uint32_t id, enum NODE_TYPE type) {
 
 	return node.type == type;
 }
+
+// the id 0 is also a block type for genesis so use 0 to substitute null
 uint32_t get_higher_id(ast_t *ast, uint32_t id) {
 	uint32_t i = id;
 	node_t node = ast->array[i];
@@ -147,11 +149,11 @@ void build_equal_node(ctx_t *ctx) {
 	node_t *oper = &ast->array[oper_id];
 	oper->type = EQUAL;
 	oper->ptr = new_value(values);
+	values->array[oper->ptr].type = BOOL;
 
 	oper->next_id = root_node->next_id;
 	root_node->next_id = oper_id;
 	oper->parent_id = root_id;
-	og_node->parent_id = oper_id;
 
 	uint32_t new_id = new_node(ast);
 	node_t *new = &ast->array[new_id];
