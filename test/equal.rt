@@ -6,3 +6,4 @@ more = 1 == 1 == 2 == 3
 
 success = 1 == 1
 success2 = 1 + 2 == 3
+print(success)

@@ -231,6 +231,7 @@ void print_value(interpreter_t *preter, value_t value) {
 	}
 }
 
+// make it do math / evaluate
 uint8_t run(interpreter_t *preter) {
 	ast_t ast = preter->ast;
 	vars_t vars = preter->vars;
@@ -272,14 +273,15 @@ uint8_t run(interpreter_t *preter) {
 				uint32_t end_id;
 				eval_exp(preter, temp_node->ptr, &end_id);
 				value_t val = values.array[temp_node->ptr];
+				node_t end_node = ast.array[end_id];
 
 				if (val.type == BOOL && val.ptr != 0) {
-					temp_node = &ast.array[temp_node->ptr];
+					temp_node = &ast.array[end_node.next_id];
 					continue;
 					// stop the next id traversal
 				}
 
-				temp_node = &ast.array[end_id];
+				temp_node = &ast.array[end_node.ptr];
 				break;
 			}
 			default: {
@@ -328,10 +330,12 @@ uint8_t print_chain(interpreter_t *preter) {
 	ast_t ast = preter->ast;
 	node_t *temp_node = &ast.array[0];
 	uint32_t id = 0;
+	printf("STATS %d\n", ast.len);
 	while (temp_node->type != END) {
 		print_node(preter, id);
 		id = temp_node->next_id;
 		temp_node = &ast.array[id];
 	}
+	print_node(preter, id);
 	return 1;
 }

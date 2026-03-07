@@ -35,6 +35,6 @@ uint8_t is_operator(char ch) {
 
 uint8_t is_ender(char ch) {
 	if (ch == '+' || ch == ')' ||
-		is_lex(ch) || ch == '\0') return 1;
+		is_lex(ch) || ch == '\0' || ch == '=') return 1;
 	return 0;
 }

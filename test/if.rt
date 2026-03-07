@@ -1,2 +1,6 @@
 ten = 10
-ten = 1
+
+if ten == 1 {
+print("hello")
+print(ten == 1)
+}

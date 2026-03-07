@@ -91,7 +91,7 @@ uint8_t lex_handle_ref(ctx_t *ctx, char ch) {
 
 	int32_t var_id = get_var(vars, ctx->lex);
 	if (var_id == -1) {
-		printf("%s\n", ctx->lex);
+		printf("'%s'", ctx->lex);
 		return user_err("variable doesnt exist");
 	}
 
@@ -119,6 +119,8 @@ uint8_t is_part_of_type(ast_t *ast, uint32_t id, enum NODE_TYPE type) {
 uint32_t get_higher_id(ast_t *ast, uint32_t id) {
 	uint32_t i = id;
 	node_t node = ast->array[i];
+	i = node.parent_id;
+	node = ast->array[i];
 
 	while (should_eval(node.type)) {
 		if (node.parent_id == 0) {
@@ -229,24 +231,26 @@ uint8_t process(ctx_t *ctx, char ch) {
 		// it means the previous symbol was an equal sign
 		case ST_EQUAL_SYMBOL_LEX: {
 			if (ch == '=') {
+				int32_t var_id = get_var(vars, ctx->lex);
+				if (var_id == -1) {
+					printf("'%s'", ctx->lex);
+					return user_err("variable doesnt exist");
+				}
+				ast->array[ctx->temp_id].type = REFERENCE;
+				ast->array[ctx->temp_id].ptr = var_id;
 				build_equal_node(ctx);
 				ctx->status = ST_NONE;
-				break;
 			} else {
 				ast->array[ctx->temp_id].type = DECLARATION;
-
 				int32_t var_id = get_var(vars, ctx->lex);
 				if (var_id == -1) {
 					var_id = new_var(vars, ctx->lex);
 				}
 				ast->array[ctx->temp_id].ptr = var_id;
-
 				ctx->temp_id = append_child(ast, ctx->temp_id);
-
 				ctx->status = ST_NONE;
 				goto st_none;
 			}
-			break;
 		}
 		case ST_EQUAL_SYMBOL: {
 			if (ch == '=') {
@@ -255,6 +259,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 			} else {
 				return user_err("unexpected = symbol");
 			}
+			break;
 		}
 		case ST_NONE: {
 		st_none:
@@ -312,11 +317,8 @@ uint8_t process(ctx_t *ctx, char ch) {
 				}
 				parse_number(&preter->rt_ints, value, ctx->lex, ctx->i);
 
-				if (is_whitespace(ch)) {
-					ctx->status = ST_END;
-				} else {
-					goto st_end;
-				}
+				ctx->status = ST_END;
+				goto st_end;
 			}
 			break;
 		}
@@ -331,16 +333,83 @@ uint8_t process(ctx_t *ctx, char ch) {
 			} else {
 				ctx->lex[ctx->i] = '\0';
 
-				if (is_whitespace(ch)) {
-					ctx->status = ST_LEX_END;
-				} else if (ch == '(') {
-					goto lex_par;
-				} else if (ch == '=') {
-					ctx->status = ST_EQUAL_SYMBOL_LEX;
+				if (strcmp(ctx->lex, "if") == 0) {
+					ast->array[ctx->temp_id].type = IF;
+
+					// the condition
+					// if false, then jump to id in ptr
+					uint32_t new_id = new_node(ast);
+					node_t *new = &ast->array[new_id];
+					new->parent_id = ctx->temp_id;
+					ast->array[ctx->temp_id].next_id = new_id;
+					ctx->temp_id = new_id;
+					ctx->status = ST_NONE;
+
+					goto st_none;
+				}
+
+				if (ch == '(') {
+					ctx->status = ST_NONE;
+					ast->array[ctx->temp_id].type = CALL;
+
+					// if its a function
+					int32_t func_id = get_func(funcs, ctx->lex);
+					if (func_id == -1) return user_err("function doesnt exist");
+					ast->array[ctx->temp_id].ptr = func_id;
+
+					func_t func = funcs->array[func_id];
+					if (func.n_param > 0) {
+						if (func.n_param == 1) {
+							ctx->temp_id = append_child(ast, ctx->temp_id);
+						} else {
+							ctx->temp_id = append_child(ast, ctx->temp_id);
+							ast->array[ctx->temp_id].type = PARENTHESIS;
+
+							ctx->temp_id = append_child(ast, ctx->temp_id);
+						}
+					}
 				} else {
 					// could be just a variable
-					goto lex_else;
+					node_t *temp_node = &ast->array[ctx->temp_id];
+
+					if (strcmp(ctx->lex, "true") == 0) {
+						temp_node->type = VALUE;
+						uint16_t value_id = new_value(&ctx->preter->values);
+						temp_node->ptr = value_id;
+						ctx->preter->values.array[value_id].type = BOOL;
+						ctx->preter->values.array[value_id].ptr = 1;
+					} else if (strcmp(ctx->lex, "false") == 0) {
+						temp_node->type = VALUE;
+						uint16_t value_id = new_value(&ctx->preter->values);
+						temp_node->ptr = value_id;
+						ctx->preter->values.array[value_id].type = BOOL;
+						ctx->preter->values.array[value_id].ptr = 0;
+					}
+
+					goto st_lex_end;
+					ctx->status = ST_LEX_END;
 				}
+			}
+			break;
+		}
+		case ST_LEX_END: {
+		st_lex_end:
+			if (is_whitespace(ch)) break;
+
+			if (ch == '=') {
+				ctx->status = ST_EQUAL_SYMBOL_LEX;
+			} else {
+				node_t *temp_node = &ast->array[ctx->temp_id];
+				int32_t var_id = get_var(vars, ctx->lex);
+				if (var_id == -1) {
+					printf("'%s'", ctx->lex);
+					return user_err("variable doesnt exist");
+				}
+				temp_node->type = REFERENCE;
+				temp_node->ptr = var_id;
+
+				ctx->status = ST_END;
+				goto st_end;
 			}
 			break;
 		}
@@ -355,55 +424,9 @@ uint8_t process(ctx_t *ctx, char ch) {
 			}
 			break;
 		}
-		case ST_LEX_END: {
-			if (ch == '(') {
-			lex_par:
-				ctx->status = ST_NONE;
-
-				if (strcmp(ctx->lex, "if") == 0) {
-					ast->array[ctx->temp_id].type = IF;
-
-					// the condition
-					// if false, then jump to id in ptr
-					uint32_t new_id = new_node(ast);
-					ast->array[ctx->temp_id].ptr = new_id;
-					ctx->temp_id = new_id;
-					break;
-				}
-
-				ast->array[ctx->temp_id].type = CALL;
-
-				// if its a function
-				int32_t func_id = get_func(funcs, ctx->lex);
-				if (func_id == -1) return user_err("function doesnt exist");
-				ast->array[ctx->temp_id].ptr = func_id;
-
-				func_t func = funcs->array[func_id];
-				if (func.n_param > 0) {
-					if (func.n_param == 1) {
-						ctx->temp_id = append_child(ast, ctx->temp_id);
-					} else {
-						ctx->temp_id = append_child(ast, ctx->temp_id);
-						ast->array[ctx->temp_id].type = PARENTHESIS;
-
-						ctx->temp_id = append_child(ast, ctx->temp_id);
-					}
-				}
-			} else if (ch == '=') {
-				ctx->status = ST_EQUAL_SYMBOL_LEX;
-			} else if (is_whitespace(ch)) {
-				break;
-			} else {
-				// could be a reference / var
-			lex_else:
-				if (!lex_handle_ref(ctx, ch)) return 0;
-				goto st_end;
-			}
-			break;
-		}
 		case ST_END: {
-			if (is_whitespace(ch)) break;
 		st_end:
+			if (is_whitespace(ch)) break;
 			if (ch == '+') {
 				build_add_node(ctx);
 				ctx->status = ST_NONE;
@@ -449,11 +472,12 @@ uint8_t process(ctx_t *ctx, char ch) {
 				}
 			} else if (ch == '}') {
 				if (is_part_of_type(ast, ctx->temp_id, IF)) {
+					ast->array[ctx->temp_id].state = NS_END;
 					uint32_t new_id = new_node(ast);
 
 					uint32_t if_id = get_higher_id(ast, ctx->temp_id);
 					ast->array[ctx->temp_id].next_id = new_id;
-					ast->array[if_id].next_id = new_id;
+					ast->array[if_id].ptr = new_id;
 					ctx->temp_id = new_id;
 
 					ctx->status = ST_NONE;
@@ -480,6 +504,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 				}
 				return user_err("unexpected character");
 			} else {
+				printf("'%c'\n", ch);
 				return user_err("end: unexpected character");
 			}
 			break;
