@@ -139,7 +139,6 @@ void build_equal_node(ctx_t *ctx) {
 	values_t *values = &preter->values;
 
 	node_t *og_node = &ast->array[ctx->temp_id];
-
 	uint32_t root_id = og_node->parent_id;
 	node_t *root_node = &ast->array[root_id];
 	while (should_eval(root_node->type)) {
@@ -153,6 +152,8 @@ void build_equal_node(ctx_t *ctx) {
 	oper->ptr = new_value(values);
 	values->array[oper->ptr].type = BOOL;
 
+	root_node = &ast->array[root_id];
+
 	oper->next_id = root_node->next_id;
 	root_node->next_id = oper_id;
 	oper->parent_id = root_id;
@@ -162,6 +163,7 @@ void build_equal_node(ctx_t *ctx) {
 	new->parent_id = oper_id;
 	new->state = NS_BACK;
 
+	og_node = &ast->array[ctx->temp_id];
 	og_node->next_id = new_id;
 	ctx->temp_id = new_id;
 }
@@ -177,6 +179,7 @@ void build_add_node(ctx_t *ctx) {
 		uint32_t oper_id = new_node(ast);
 		node_t *oper = &ast->array[oper_id];
 		node_t *grandpa = &ast->array[parent->parent_id];
+		parent = &ast->array[og_node->parent_id];
 
 		grandpa->next_id = oper_id;
 		oper->next_id = og_node->parent_id;
@@ -191,6 +194,7 @@ void build_add_node(ctx_t *ctx) {
 		new_node->parent_id = oper_id;
 		new_node->state = NS_BACK;
 
+		og_node = &ast->array[ctx->temp_id];
 		og_node->next_id = new_id;
 		ctx->temp_id = new_id;
 	} else {
@@ -203,6 +207,7 @@ void build_add_node(ctx_t *ctx) {
 		// next id is set
 		copy->state = 0;
 
+		og_node = &ast->array[ctx->temp_id];
 		og_node->type = ADD;
 		og_node->ptr = new_value(values);
 		// parent is already set
@@ -212,6 +217,8 @@ void build_add_node(ctx_t *ctx) {
 		uint32_t new_id = new_node(ast);
 		node_t *new_node = &ast->array[new_id];
 		new_node->parent_id = ctx->temp_id;
+
+		copy = &ast->array[copy_id];
 
 		ctx->temp_id = new_id;
 		copy->next_id = new_id;
