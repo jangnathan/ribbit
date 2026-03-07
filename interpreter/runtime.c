@@ -239,6 +239,7 @@ uint8_t run(interpreter_t *preter) {
 	node_t *temp_node = &ast.array[0];
 	printf("-- RUNTIME --\n");
 	while (temp_node->type != END) {
+		temp_node = &ast.array[temp_node->next_id];
 		switch (temp_node->type) {
 			case BLOCK: {
 				break;
@@ -273,22 +274,19 @@ uint8_t run(interpreter_t *preter) {
 				uint32_t end_id;
 				eval_exp(preter, temp_node->ptr, &end_id);
 				value_t val = values.array[temp_node->ptr];
-				node_t end_node = ast.array[end_id];
 
 				if (val.type == BOOL && val.ptr != 0) {
-					temp_node = &ast.array[end_node.next_id];
+					temp_node = &ast.array[temp_node->next_id];
 					continue;
 					// stop the next id traversal
 				}
 
-				temp_node = &ast.array[end_node.ptr];
+				temp_node = &ast.array[temp_node->ptr];
 				break;
 			}
 			default: {
 			}
 		}
-
-		temp_node = &ast.array[temp_node->next_id];
 	}
 	printf("-- END PROGRAM --\n");
 	return 1;
@@ -313,8 +311,8 @@ uint8_t print_node(interpreter_t *preter, uint32_t id) {
 			printf("end");
 			break;
 	}
+	printf("\nPTR: %d: ", temp_node.ptr);
 	if (temp_node.type == VALUE || should_eval(temp_node.type)) {
-		printf("\nVALUE (id %d): ", temp_node.ptr);
 		value_t value = preter->values.array[temp_node.ptr];
 		print_value(preter, value);
 		printf("\n");

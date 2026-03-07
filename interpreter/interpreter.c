@@ -251,6 +251,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 				ctx->status = ST_NONE;
 				goto st_none;
 			}
+			break;
 		}
 		case ST_EQUAL_SYMBOL: {
 			if (ch == '=') {
@@ -441,7 +442,6 @@ uint8_t process(ctx_t *ctx, char ch) {
 				if (is_part_of_type(ast, ctx->temp_id, CALL)) {
 					ast->array[ctx->temp_id].state = NS_END;
 					uint32_t new_id = new_node(ast);
-
 					node_t *new_node = &ast->array[new_id];
 
 					uint32_t top_id = get_higher_id(ast, ctx->temp_id);
@@ -449,8 +449,6 @@ uint8_t process(ctx_t *ctx, char ch) {
 					ast->array[ctx->temp_id].next_id = new_id;
 					ctx->temp_id = new_id;
 					new_node->parent_id = ast->array[top_id].parent_id;
-
-					ctx->status = ST_NONE;
 				} else {
 					return user_err("unexpected ')'");
 				}
@@ -471,18 +469,24 @@ uint8_t process(ctx_t *ctx, char ch) {
 					return user_err("unexpected '{'");
 				}
 			} else if (ch == '}') {
-				if (is_part_of_type(ast, ctx->temp_id, IF)) {
+				if (is_part_of_type(ast, ctx->temp_id, DECLARATION)) {
 					ast->array[ctx->temp_id].state = NS_END;
-					uint32_t new_id = new_node(ast);
 
-					uint32_t if_id = get_higher_id(ast, ctx->temp_id);
+					uint32_t top_id = get_higher_id(ast, ctx->temp_id);
+					uint32_t new_id = new_node(ast);
+					node_t *new_node = &ast->array[new_id];
 					ast->array[ctx->temp_id].next_id = new_id;
-					ast->array[if_id].ptr = new_id;
+
 					ctx->temp_id = new_id;
+					new_node->parent_id = ast->array[top_id].parent_id;
+				}
+				if (is_part_of_type(ast, ctx->temp_id, IF)) {
+					uint32_t if_id = get_higher_id(ast, ctx->temp_id);
+					ast->array[if_id].ptr = ctx->temp_id;
 
 					ctx->status = ST_NONE;
 				} else {
-					return user_err("unexpected '{'");
+					return user_err("unexpected '}'");
 				}
 
 				// a new statement / ending
@@ -497,12 +501,9 @@ uint8_t process(ctx_t *ctx, char ch) {
 
 					ctx->temp_id = new_id;
 					new_node->parent_id = ast->array[top_id].parent_id;
-
-					ctx->status = ST_NONE;
-					if (is_lex(ch)) return process(ctx, ch);
-					break;
 				}
-				return user_err("unexpected character");
+				ctx->status = ST_NONE;
+				goto st_none;
 			} else {
 				printf("'%c'\n", ch);
 				return user_err("end: unexpected character");
