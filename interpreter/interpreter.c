@@ -65,39 +65,36 @@ void ctx_init(ctx_t *ctx) {
 	#endif
 }
 
-uint8_t lex_handle_ref(ctx_t *ctx, char ch) {
-	node_t *temp_node = &ctx->preter->ast.array[ctx->temp_id];
-	if (!is_ender(ch)) {
-		return user_err("unexpected character");
+uint32_t find_ancestor_of_type(ast_t *ast, uint32_t id, enum NODE_TYPE type) {
+	node_t node = ast->array[id];
+
+	while (node.parent_id != 0) {
+		id = node.parent_id;
+		node = ast->array[id];
+		if (node.type == type) return id;
 	}
+	return 0;
+}
 
-	if (strcmp(ctx->lex, "true") == 0) {
-		temp_node->type = VALUE;
-		uint16_t value_id = new_value(&ctx->preter->values);
-		temp_node->ptr = value_id;
-		ctx->preter->values.array[value_id].type = BOOL;
-		ctx->preter->values.array[value_id].ptr = 1;
-		return 1;
-	} else if (strcmp(ctx->lex, "false") == 0) {
-		temp_node->type = VALUE;
-		uint16_t value_id = new_value(&ctx->preter->values);
-		temp_node->ptr = value_id;
-		ctx->preter->values.array[value_id].type = BOOL;
-		ctx->preter->values.array[value_id].ptr = 0;
-		return 1;
+uint8_t is_descendant_of(ast_t *ast, uint32_t id, uint32_t target) {
+	node_t node = ast->array[id];
+
+	while (node.parent_id != 0) {
+		id = node.parent_id;
+		node = ast->array[node.parent_id];
+		if (id == target) return 1;
 	}
+	return 0;
+}
 
-	vars_t *vars = &ctx->preter->vars;
+uint8_t is_descendant_of_type(ast_t *ast, uint32_t id, enum NODE_TYPE type) {
+	node_t node = ast->array[id];
 
-	int32_t var_id = get_var(vars, ctx->lex);
-	if (var_id == -1) {
-		printf("'%s'", ctx->lex);
-		return user_err("variable doesnt exist");
+	while (node.parent_id != 0) {
+		node = ast->array[node.parent_id];
+		if (node.type == type) return 1;
 	}
-
-	temp_node->type = REFERENCE;
-	temp_node->ptr = var_id;
-	return 1;
+	return 0;
 }
 
 uint8_t is_part_of_type(ast_t *ast, uint32_t id, enum NODE_TYPE type) {
@@ -355,6 +352,23 @@ uint8_t process(ctx_t *ctx, char ch) {
 
 					goto st_none;
 				}
+				if (strcmp(ctx->lex, "for") == 0) {
+					ast->array[ctx->temp_id].type = FOR_LOOP;
+
+					// the inner loop code is in ptr as a BLOCK and the BLOCK will have ptr to end of loop
+					// the condition will be in next id of loop and at end it will point to inner loop code, which also includes the incriment
+					// this is the init statement (i = 0), it will be a node before for loop
+					// node creation errors will not happen if there are valid actions e.g. variable declarations / function calls
+
+					uint32_t new_id = new_node(ast);
+					node_t *new = &ast->array[new_id];
+					new->parent_id = ctx->temp_id;
+					ast->array[ctx->temp_id].ptr = new_id;
+					ctx->temp_id = new_id;
+					ctx->status = ST_NONE;
+
+					goto st_none;
+				}
 
 				if (ch == '(') {
 					ctx->status = ST_NONE;
@@ -459,8 +473,41 @@ uint8_t process(ctx_t *ctx, char ch) {
 				} else {
 					return user_err("unexpected ')'");
 				}
+			} else if (ch == ',') {
+				uint32_t loop_id = find_ancestor_of_type(ast, ctx->temp_id, FOR_LOOP);
+				if (loop_id != 0) {
+					uint32_t init_id = ast->array[loop_id].ptr;
+					// How will I recurse?? and at the end, how will i know the root work
+
+					if (is_descendant_of(ast, ctx->temp_id, init_id)) {
+						// this is the completion of init
+						ast->array[ctx->temp_id].state = NS_END;
+
+						uint32_t new_id = new_node(ast);
+						node_t *new_node = &ast->array[new_id];
+
+						// move onto conditionings
+						ast->array[loop_id].next_id = new_id;
+						new_node->parent_id = loop_id;
+						new_node->ptr = new_value(values);
+						ctx->temp_id = new_id;
+					} else if (is_descendant_of(ast, ctx->temp_id, ast->array[loop_id].next_id)) {
+						ast->array[ctx->temp_id].state = NS_END;
+
+						uint32_t new_id = new_node(ast);
+						node_t *new_node = &ast->array[new_id];
+
+						// move onto the incremental now which is part of the inner loop so just carry on like normal
+						ast->array[ctx->temp_id].next_id = new_id;
+						new_node->parent_id = loop_id;
+						ctx->temp_id = new_id;
+					}
+				} else {
+					return user_err("unexpected ','");
+				}
 			} else if (ch == '{') {
-				if (is_part_of_type(ast, ctx->temp_id, IF)) {
+				uint32_t if_id = find_ancestor_of_type(ast, ctx->temp_id, IF);
+				if (if_id != 0) {
 					ast->array[ctx->temp_id].state = NS_END;
 
 					uint32_t new_id = new_node(ast);
