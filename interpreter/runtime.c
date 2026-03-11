@@ -275,14 +275,17 @@ uint8_t run(interpreter_t *preter) {
 				eval_exp(preter, temp_node->ptr, &end_id);
 				value_t val = values.array[temp_node->ptr];
 
+				// true
 				if (val.type == BOOL && val.ptr != 0) {
-					temp_node = &ast.array[temp_node->next_id];
+					temp_node = &ast.array[ast.array[end_id].next_id];
 					continue;
 					// stop the next id traversal
 				}
 
 				temp_node = &ast.array[temp_node->ptr];
 				break;
+			}
+			case FOR_LOOP: {
 			}
 			default: {
 			}
