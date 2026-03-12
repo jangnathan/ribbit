@@ -19,13 +19,15 @@ enum NODE_TYPE {
 	PARENTHESIS, // just to group things together
 	EQUAL,
 	NOT_EQUAL,
-	GREATER,
+	MORE,
 	LESS,
-	GREATER_EQUAL,
+	MORE_EQUAL,
 	LESS_EQUAL
 };
 void log_nodetype(enum NODE_TYPE type);
 
+uint8_t has_end_parenthesis(enum NODE_TYPE type);
+uint8_t has_curly_braces(enum NODE_TYPE type);
 uint8_t should_eval(enum NODE_TYPE type);
 uint8_t is_compare(enum NODE_TYPE type);
 

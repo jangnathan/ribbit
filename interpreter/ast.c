@@ -33,6 +33,25 @@ uint8_t is_compare(enum NODE_TYPE type) {
 	return type >= EQUAL;
 }
 
+uint8_t has_end_parenthesis(enum NODE_TYPE type) {
+	switch (type) {
+		case CALL:
+		case PARENTHESIS:
+			return 1;
+		default:
+			return 0;
+	}
+}
+uint8_t has_curly_braces(enum NODE_TYPE type) {
+	switch (type) {
+		case IF:
+		case FOR_LOOP:
+			return 1;
+		default:
+			return 0;
+	}
+}
+
 uint32_t new_node(ast_t *ast) {
 	node_t *new = &ast->array[ast->len];
 	ast->len++;

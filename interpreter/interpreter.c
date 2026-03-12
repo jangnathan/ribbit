@@ -76,6 +76,18 @@ uint32_t find_ancestor_of_type(ast_t *ast, uint32_t id, enum NODE_TYPE type) {
 	return 0;
 }
 
+uint8_t is_of(ast_t *ast, uint32_t id, uint32_t target) {
+	node_t node = ast->array[id];
+
+	while (id != 0) {
+		if (id == target) return 1;
+
+		id = node.parent_id;
+		node = ast->array[node.parent_id];
+	}
+	return 0;
+}
+
 uint8_t is_descendant_of(ast_t *ast, uint32_t id, uint32_t target) {
 	node_t node = ast->array[id];
 
@@ -97,40 +109,7 @@ uint8_t is_descendant_of_type(ast_t *ast, uint32_t id, enum NODE_TYPE type) {
 	return 0;
 }
 
-uint8_t is_part_of_type(ast_t *ast, uint32_t id, enum NODE_TYPE type) {
-	node_t node = ast->array[id];
-	node = ast->array[node.parent_id];
-
-	while (should_eval(node.type)) {
-		if (node.parent_id == 0) {
-			return 0;
-		}
-
-		node = ast->array[node.parent_id];
-	}
-
-	return node.type == type;
-}
-
-// the id 0 is also a block type for genesis so use 0 to substitute null
-uint32_t get_higher_id(ast_t *ast, uint32_t id) {
-	uint32_t i = id;
-	node_t node = ast->array[i];
-	i = node.parent_id;
-	node = ast->array[i];
-
-	while (should_eval(node.type)) {
-		if (node.parent_id == 0) {
-			return 0;
-		}
-		i = node.parent_id;
-		node = ast->array[i];
-	}
-
-	return i;
-}
-
-void build_equal_node(ctx_t *ctx) {
+void build_top_node(ctx_t *ctx, enum NODE_TYPE type) {
 	interpreter_t *preter = ctx->preter;
 	ast_t *ast = &preter->ast;
 	values_t *values = &preter->values;
@@ -145,7 +124,7 @@ void build_equal_node(ctx_t *ctx) {
 
 	uint32_t oper_id = new_node(ast);
 	node_t *oper = &ast->array[oper_id];
-	oper->type = EQUAL;
+	oper->type = type;
 	oper->ptr = new_value(values);
 	values->array[oper->ptr].type = BOOL;
 
@@ -163,6 +142,8 @@ void build_equal_node(ctx_t *ctx) {
 	og_node = &ast->array[ctx->temp_id];
 	og_node->next_id = new_id;
 	ctx->temp_id = new_id;
+
+	ctx->status = ST_NONE;
 }
 void build_add_node(ctx_t *ctx) {
 	interpreter_t *preter = ctx->preter;
@@ -221,6 +202,23 @@ void build_add_node(ctx_t *ctx) {
 		copy->next_id = new_id;
 		new_node->state = NS_BACK;
 	}
+
+	ctx->status = ST_NONE;
+}
+
+void end_declare(ctx_t *ctx) {
+	ast_t *ast = &ctx->preter->ast;
+	uint32_t top_id = find_ancestor_of_type(ast, ctx->temp_id, DECLARATION);
+	if (top_id != 0) {
+		ast->array[ctx->temp_id].state = NS_END;
+
+		uint32_t new_id = new_node(ast);
+		node_t *new_node = &ast->array[new_id];
+		ast->array[ctx->temp_id].next_id = new_id;
+
+		ctx->temp_id = new_id;
+		new_node->parent_id = ast->array[top_id].parent_id;
+	}
 }
 
 uint8_t process(ctx_t *ctx, char ch) {
@@ -242,8 +240,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 				}
 				ast->array[ctx->temp_id].type = REFERENCE;
 				ast->array[ctx->temp_id].ptr = var_id;
-				build_equal_node(ctx);
-				ctx->status = ST_NONE;
+				build_top_node(ctx, ADD);
 			} else {
 				ast->array[ctx->temp_id].type = DECLARATION;
 				int32_t var_id = get_var(vars, ctx->lex);
@@ -259,8 +256,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 		}
 		case ST_EQUAL_SYMBOL: {
 			if (ch == '=') {
-				build_equal_node(ctx);
-				ctx->status = ST_NONE;
+				build_top_node(ctx, ADD);
 			} else {
 				return user_err("unexpected = symbol");
 			}
@@ -451,110 +447,135 @@ uint8_t process(ctx_t *ctx, char ch) {
 			if (is_whitespace(ch)) break;
 			if (ch == '+') {
 				build_add_node(ctx);
-				ctx->status = ST_NONE;
 				break;
-			} else if (ch == '=') {
+			}
+			if (ch == '<') {
+				build_top_node(ctx, LESS);
+				break;
+			}
+			if (ch == '>') {
+				build_top_node(ctx, MORE);
+				break;
+			}
+			if (ch == '=') {
 				ctx->status = ST_EQUAL_SYMBOL;
 				break;
 			}
 
 			if (ch == ')') {
 				// use the parent effectively
-				if (is_part_of_type(ast, ctx->temp_id, CALL)) {
-					ast->array[ctx->temp_id].state = NS_END;
-					uint32_t new_id = new_node(ast);
-					node_t *new_node = &ast->array[new_id];
+				uint32_t top_id = ctx->temp_id;
+				while (!has_end_parenthesis(ast->array[top_id].type) && top_id != 0) {
+					top_id = ast->array[top_id].parent_id;
+				}
+				if (top_id == 0) return user_err("unexpected ')'");
 
-					uint32_t top_id = get_higher_id(ast, ctx->temp_id);
+				switch (ast->array[top_id].type) {
+					case CALL: {
+						ast->array[ctx->temp_id].state = NS_END;
+						uint32_t new_id = new_node(ast);
+						node_t *new_node = &ast->array[new_id];
 
-					ast->array[ctx->temp_id].next_id = new_id;
-					ctx->temp_id = new_id;
-					new_node->parent_id = ast->array[top_id].parent_id;
-				} else {
-					return user_err("unexpected ')'");
+						ast->array[ctx->temp_id].next_id = new_id;
+						ctx->temp_id = new_id;
+						new_node->parent_id = ast->array[top_id].parent_id;
+
+						break;
+					}
+					default:
+						return user_err("unexpected ')'");
 				}
 			} else if (ch == ',') {
 				uint32_t loop_id = find_ancestor_of_type(ast, ctx->temp_id, FOR_LOOP);
 				if (loop_id != 0) {
-					uint32_t init_id = ast->array[loop_id].ptr;
-					// How will I recurse?? and at the end, how will i know the root work
-
-					if (is_descendant_of(ast, ctx->temp_id, init_id)) {
+					if (ast->array[loop_id].next_id == 0) {
 						// this is the completion of init
 						ast->array[ctx->temp_id].state = NS_END;
 
+						uint32_t block_id = new_node(ast);
+						ast->array[loop_id].next_id = block_id;
+						ast->array[block_id].type = BLOCK;
+						ast->array[block_id].parent_id = loop_id;
 						uint32_t new_id = new_node(ast);
-						node_t *new_node = &ast->array[new_id];
+						ast->array[block_id].next_id = new_id;
+
+						ast->array[new_id].parent_id = block_id;
 
 						// move onto conditionings
-						ast->array[loop_id].next_id = new_id;
-						new_node->parent_id = loop_id;
-						new_node->ptr = new_value(values);
+						ast->array[new_id].ptr = new_value(values);
 						ctx->temp_id = new_id;
-					} else if (is_descendant_of(ast, ctx->temp_id, ast->array[loop_id].next_id)) {
+					} else {
 						ast->array[ctx->temp_id].state = NS_END;
 
 						uint32_t new_id = new_node(ast);
-						node_t *new_node = &ast->array[new_id];
+						ast->array[ctx->temp_id].next_id = new_id;
+						ast->array[new_id].parent_id = ast->array[ctx->temp_id].parent_id;
 
 						// move onto the incremental now which is part of the inner loop so just carry on like normal
-						ast->array[ctx->temp_id].next_id = new_id;
-						new_node->parent_id = loop_id;
 						ctx->temp_id = new_id;
 					}
 				} else {
 					return user_err("unexpected ','");
 				}
 			} else if (ch == '{') {
-				uint32_t if_id = find_ancestor_of_type(ast, ctx->temp_id, IF);
-				if (if_id != 0) {
-					ast->array[ctx->temp_id].state = NS_END;
+				uint32_t top_id = ctx->temp_id;
+				while (!has_curly_braces(ast->array[top_id].type) && top_id != 0) {
+					top_id = ast->array[top_id].parent_id;
+				}
+				if (top_id == 0) return user_err("unexpected '{'");
 
-					uint32_t new_id = new_node(ast);
-					node_t *new_node = &ast->array[new_id];
+				switch (ast->array[top_id].type) {
+					case IF: {
+						ast->array[ctx->temp_id].state = NS_END;
 
-					uint32_t if_id = get_higher_id(ast, ctx->temp_id);
-					ast->array[ctx->temp_id].next_id = new_id;
-					ctx->temp_id = new_id;
-					new_node->parent_id = if_id;
+						uint32_t new_id = new_node(ast);
+						node_t *new_node = &ast->array[new_id];
 
-					ctx->status = ST_NONE;
-				} else {
-					return user_err("unexpected '{'");
+						ast->array[ctx->temp_id].next_id = new_id;
+						ctx->temp_id = new_id;
+						new_node->parent_id = top_id;
+
+						ctx->status = ST_NONE;
+						break;
+					}
+					case FOR_LOOP: {
+						ast->array[ctx->temp_id].state = NS_END;
+
+						uint32_t new_id = new_node(ast);
+						node_t *new_node = &ast->array[new_id];
+
+						ast->array[ctx->temp_id].next_id = new_id;
+						ctx->temp_id = new_id;
+						new_node->parent_id = top_id;
+
+						ctx->status = ST_NONE;
+						break;
+					}
+					default:
+						return user_err("unexpected '{'");
 				}
 			} else if (ch == '}') {
-				if (is_part_of_type(ast, ctx->temp_id, DECLARATION)) {
-					ast->array[ctx->temp_id].state = NS_END;
-
-					uint32_t top_id = get_higher_id(ast, ctx->temp_id);
-					uint32_t new_id = new_node(ast);
-					node_t *new_node = &ast->array[new_id];
-					ast->array[ctx->temp_id].next_id = new_id;
-
-					ctx->temp_id = new_id;
-					new_node->parent_id = ast->array[top_id].parent_id;
+				uint32_t top_id = ctx->temp_id;
+				while (!has_curly_braces(ast->array[top_id].type) && top_id != 0) {
+					top_id = ast->array[top_id].parent_id;
 				}
-				if (is_part_of_type(ast, ctx->temp_id, IF)) {
-					uint32_t if_id = get_higher_id(ast, ctx->temp_id);
-					ast->array[if_id].ptr = ctx->temp_id;
+				if (top_id == 0) return user_err("unexpected '{'");
 
-					ctx->status = ST_NONE;
-				} else {
-					return user_err("unexpected '}'");
+				switch (ast->array[top_id].type) {
+					case IF: {
+						if (is_descendant_of_type(ast, ctx->temp_id, DECLARATION)) end_declare(ctx);
+						ast->array[top_id].ptr = ctx->temp_id;
+
+						ctx->status = ST_NONE;
+						break;
+					}
+					default: return user_err("unexpected '}'");
 				}
 
 				// a new statement / ending
 			} else if (is_lex(ch) || ch == '\0') {
-				if (is_part_of_type(ast, ctx->temp_id, DECLARATION)) {
-					ast->array[ctx->temp_id].state = NS_END;
-
-					uint32_t top_id = get_higher_id(ast, ctx->temp_id);
-					uint32_t new_id = new_node(ast);
-					node_t *new_node = &ast->array[new_id];
-					ast->array[ctx->temp_id].next_id = new_id;
-
-					ctx->temp_id = new_id;
-					new_node->parent_id = ast->array[top_id].parent_id;
+				if (is_descendant_of_type(ast, ctx->temp_id, DECLARATION)) {
+					end_declare(ctx);
 				}
 				ctx->status = ST_NONE;
 				goto st_none;
