@@ -240,7 +240,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 				}
 				ast->array[ctx->temp_id].type = REFERENCE;
 				ast->array[ctx->temp_id].ptr = var_id;
-				build_top_node(ctx, ADD);
+				build_top_node(ctx, EQUAL);
 			} else {
 				ast->array[ctx->temp_id].type = DECLARATION;
 				int32_t var_id = get_var(vars, ctx->lex);
@@ -256,7 +256,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 		}
 		case ST_EQUAL_SYMBOL: {
 			if (ch == '=') {
-				build_top_node(ctx, ADD);
+				build_top_node(ctx, EQUAL);
 			} else {
 				return user_err("unexpected = symbol");
 			}
