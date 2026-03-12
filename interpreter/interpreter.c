@@ -566,8 +566,10 @@ uint8_t process(ctx_t *ctx, char ch) {
 
 				switch (ast->array[top_id].type) {
 					case IF:
-					case FOR_LOOP: {
 						ast->array[top_id].ptr = ctx->temp_id;
+						break;
+					case FOR_LOOP: {
+						ast->array[ast->array[top_id].next_id].ptr = ctx->temp_id;
 						break;
 					}
 					default: return user_err("unexpected '}'");
