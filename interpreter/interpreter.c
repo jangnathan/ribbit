@@ -561,12 +561,13 @@ uint8_t process(ctx_t *ctx, char ch) {
 				}
 				if (top_id == 0) return user_err("unexpected '{'");
 
-				switch (ast->array[top_id].type) {
-					case IF: {
-						if (is_descendant_of_type(ast, ctx->temp_id, DECLARATION)) end_declare(ctx);
-						ast->array[top_id].ptr = ctx->temp_id;
+				if (is_descendant_of_type(ast, ctx->temp_id, DECLARATION)) end_declare(ctx);
+				ctx->status = ST_NONE;
 
-						ctx->status = ST_NONE;
+				switch (ast->array[top_id].type) {
+					case IF:
+					case FOR_LOOP: {
+						ast->array[top_id].ptr = ctx->temp_id;
 						break;
 					}
 					default: return user_err("unexpected '}'");
