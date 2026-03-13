@@ -27,3 +27,6 @@ uint16_t new_i32(rt_ints_t *rt_ints);
 uint16_t new_i64(rt_ints_t *rt_ints);
 
 void parse_number(rt_ints_t *rt_ints, value_t *value, char lex[MAX_LEX_LEN], uint8_t len);
+
+uint8_t numbers_equal(rt_ints_t *rt_ints, enum DATATYPE l_type, uint16_t l_ptr, enum DATATYPE r_type, uint16_t r_ptr);
+uint8_t numbers_less(rt_ints_t *rt_ints, enum DATATYPE l_type, uint16_t l_ptr, enum DATATYPE r_type, uint16_t r_ptr);

@@ -16,9 +16,9 @@ char *nodetype_string[] = {
 	"PARENTHESIS",
 	"EQUAL",
 	"NOT_EQUAL",
-	"GREATER",
+	"MORE",
 	"LESS",
-	"GREATER_EQUAL",
+	"MORE_EQUAL",
 	"LESS_EQUAL"
 };
 void log_nodetype(enum NODE_TYPE type) {

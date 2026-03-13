@@ -116,25 +116,17 @@ uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 		}
 		case EQUAL: {
 			value_t val_first = values.array[ast.array[parent.next_id].ptr];
-
-			int64_t l;
-			int64_t r;
-			if (val_first.type == I32) {
-				l = rt_ints->i32s[val_first.ptr];
-			} else if (val_first.type == I64) {
-				l = rt_ints->i64s[val_first.ptr];
-			} else if (val_first.type == BOOL) {
-				l = val_first.ptr;
-			}
-			if (value.type == I32) {
-				r = rt_ints->i32s[value.ptr];
-			} else if (value.type == I64) {
-				r = rt_ints->i64s[value.ptr];
-			} else if (value.type == BOOL) {
-				r = value.ptr;
-			}
-
-			parent_value->ptr = r == l;
+			parent_value->ptr = numbers_equal(rt_ints, val_first.type, val_first.ptr, value.type, value.ptr);
+			break;
+		}
+		case LESS: {
+			value_t val_first = values.array[ast.array[parent.next_id].ptr];
+			parent_value->ptr = numbers_less(rt_ints, val_first.type, val_first.ptr, value.type, value.ptr);
+			break;
+		}
+		case MORE: {
+			value_t val_first = values.array[ast.array[parent.next_id].ptr];
+			parent_value->ptr = numbers_less(rt_ints, val_first.type, val_first.ptr, value.type, value.ptr);
 			break;
 		}
 		default: {
@@ -279,15 +271,34 @@ uint8_t run(interpreter_t *preter) {
 				if (val.type == BOOL && val.ptr != 0) {
 					temp_node = &ast.array[ast.array[end_id].next_id];
 					continue;
-					// stop the next id traversal
 				}
 
 				temp_node = &ast.array[temp_node->ptr];
 				break;
 			}
 			case FOR_LOOP: {
+				// do the init process
+				temp_node = &ast.array[temp_node->ptr];
+				break;
 			}
 			default: {
+			}
+		}
+
+		if (temp_node->state == NS_END) {
+			node_t top = ast.array[ast.array[temp_node->next_id].parent_id];
+			// this is the first iteration (straight after the init)
+			if (top.type == FOR_LOOP) {
+				uint32_t end_id;
+				eval_exp(preter, temp_node->next_id, &end_id);
+				value_t val = values.array[ast.array[temp_node->next_id].ptr];
+
+				if (val.type == BOOL && val.ptr != 0) {
+					temp_node = &ast.array[ast.array[end_id].next_id];
+					continue;
+				}
+
+				temp_node = &ast.array[top.ptr];
 			}
 		}
 	}

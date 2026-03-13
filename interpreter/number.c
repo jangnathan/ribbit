@@ -79,3 +79,91 @@ void parse_number(rt_ints_t *rt_ints, value_t *value, char lex[MAX_LEX_LEN], uin
 		uint8_t dist2point;
 	}
 }
+
+uint8_t i32_equal_i32(rt_ints_t *rt_ints, uint16_t l, uint16_t r) {
+	return rt_ints->i32s[l] == rt_ints->i32s[r];
+}
+uint8_t i32_equal_i64(rt_ints_t *rt_ints, uint16_t l, uint16_t r) {
+	return rt_ints->i32s[l] == rt_ints->i64s[r];
+}
+uint8_t i64_equal_i64(rt_ints_t *rt_ints, uint16_t l, uint16_t r) {
+	return rt_ints->i64s[l] == rt_ints->i64s[r];
+}
+uint8_t i64_equal_bool(rt_ints_t *rt_ints, uint16_t l, uint8_t r) {
+	return rt_ints->i64s[l] == r;
+}
+uint8_t i32_equal_bool(rt_ints_t *rt_ints, uint16_t l, uint8_t r) {
+	return rt_ints->i32s[l] == r;
+}
+
+uint8_t i32_less_i32(rt_ints_t *rt_ints, uint16_t l, uint16_t r) {
+	return rt_ints->i32s[l] < rt_ints->i32s[r];
+}
+uint8_t i32_less_i64(rt_ints_t *rt_ints, uint16_t l, uint16_t r) {
+	return rt_ints->i32s[l] < rt_ints->i64s[r];
+}
+uint8_t i64_less_i64(rt_ints_t *rt_ints, uint16_t l, uint16_t r) {
+	return rt_ints->i64s[l] < rt_ints->i64s[r];
+}
+uint8_t i64_less_bool(rt_ints_t *rt_ints, uint16_t l, uint8_t r) {
+	return rt_ints->i64s[l] < r;
+}
+uint8_t i32_less_bool(rt_ints_t *rt_ints, uint16_t l, uint8_t r) {
+	return rt_ints->i32s[l] < r;
+}
+
+uint8_t numbers_equal(rt_ints_t *rt_ints, enum DATATYPE l_type, uint16_t l_ptr, enum DATATYPE r_type, uint16_t r_ptr) {
+	if (l_type == I32 && r_type == I32) {
+		return i32_equal_i32(rt_ints, l_ptr, r_ptr);
+	}
+	if (l_type == I32 && r_type == I64) {
+		return i32_equal_i64(rt_ints, l_ptr, r_ptr);
+	}
+	if (l_type == I64 && r_type == I32) {
+		return i32_equal_i64(rt_ints, l_ptr, r_ptr);
+	}
+	if (l_type == BOOL && r_type == BOOL) {
+		return l_ptr == r_ptr;
+	}
+	if (l_type == I64 && r_type == BOOL) {
+		return i64_equal_bool(rt_ints, l_ptr, r_ptr);
+	}
+	if (l_type == BOOL && r_type == I64) {
+		return i64_equal_bool(rt_ints, r_ptr, l_ptr);
+	}
+	if (l_type == I64 && r_type == BOOL) {
+		return i32_equal_bool(rt_ints, l_ptr, r_ptr);
+	}
+	if (l_type == BOOL && r_type == I64) {
+		return i32_equal_bool(rt_ints, r_ptr, l_ptr);
+	}
+	return 0;
+}
+
+uint8_t numbers_less(rt_ints_t *rt_ints, enum DATATYPE l_type, uint16_t l_ptr, enum DATATYPE r_type, uint16_t r_ptr) {
+	if (l_type == I32 && r_type == I32) {
+		return i32_less_i32(rt_ints, l_ptr, r_ptr);
+	}
+	if (l_type == I32 && r_type == I64) {
+		return i32_less_i64(rt_ints, l_ptr, r_ptr);
+	}
+	if (l_type == I64 && r_type == I32) {
+		return i32_less_i64(rt_ints, l_ptr, r_ptr);
+	}
+	if (l_type == BOOL && r_type == BOOL) {
+		return l_ptr < r_ptr;
+	}
+	if (l_type == I64 && r_type == BOOL) {
+		return i64_less_bool(rt_ints, l_ptr, r_ptr);
+	}
+	if (l_type == BOOL && r_type == I64) {
+		return i64_less_bool(rt_ints, r_ptr, l_ptr);
+	}
+	if (l_type == I64 && r_type == BOOL) {
+		return i32_less_bool(rt_ints, l_ptr, r_ptr);
+	}
+	if (l_type == BOOL && r_type == I64) {
+		return i32_less_bool(rt_ints, r_ptr, l_ptr);
+	}
+	return 0;
+}

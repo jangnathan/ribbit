@@ -1,0 +1,4 @@
+less = 1 < 2
+print(less)
+less = 2 < 1
+print(less)
