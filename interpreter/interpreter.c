@@ -242,6 +242,12 @@ uint8_t process(ctx_t *ctx, char ch) {
 				ast->array[ctx->temp_id].ptr = var_id;
 				build_top_node(ctx, EQUAL);
 			} else {
+				if (strcmp(ctx->lex, "true") == 0) {
+					return user_err("cannot set variable name to true");
+				}
+				if (strcmp(ctx->lex, "false") == 0) {
+					return user_err("cannot set variable name to false");
+				}
 				ast->array[ctx->temp_id].type = DECLARATION;
 				int32_t var_id = get_var(vars, ctx->lex);
 				if (var_id == -1) {
