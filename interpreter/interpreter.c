@@ -410,8 +410,8 @@ uint8_t process(ctx_t *ctx, char ch) {
 						ctx->preter->values.array[value_id].ptr = 0;
 					}
 
-					goto st_lex_end;
 					ctx->status = ST_LEX_END;
+					goto st_lex_end;
 				}
 			}
 			break;
@@ -495,17 +495,14 @@ uint8_t process(ctx_t *ctx, char ch) {
 				uint32_t loop_id = find_ancestor_of_type(ast, ctx->temp_id, FOR_LOOP);
 				if (loop_id != 0) {
 					if (ast->array[loop_id].next_id == 0) {
-						// this is the completion of init
-						ast->array[ctx->temp_id].state = NS_END;
+						if (is_descendant_of_type(ast, ctx->temp_id, DECLARATION)) end_declare(ctx);
 
-						uint32_t block_id = new_node(ast);
-						ast->array[loop_id].next_id = block_id;
-						ast->array[block_id].type = BLOCK;
-						ast->array[block_id].parent_id = loop_id;
+						ast->array[loop_id].next_id = ctx->temp_id;
+						ast->array[ctx->temp_id].type = BLOCK;
+						ast->array[ctx->temp_id].parent_id = loop_id;
 						uint32_t new_id = new_node(ast);
-						ast->array[block_id].next_id = new_id;
-
-						ast->array[new_id].parent_id = block_id;
+						ast->array[ctx->temp_id].next_id = new_id;
+						ast->array[new_id].parent_id = ctx->temp_id;
 
 						// move onto conditionings
 						ast->array[new_id].ptr = new_value(values);
@@ -515,10 +512,12 @@ uint8_t process(ctx_t *ctx, char ch) {
 
 						uint32_t new_id = new_node(ast);
 						ast->array[ctx->temp_id].next_id = new_id;
-						ast->array[new_id].parent_id = ast->array[ctx->temp_id].parent_id;
+						ast->array[new_id].parent_id = ast->array[loop_id].next_id;
 
 						// move onto the incremental now which is part of the inner loop so just carry on like normal
 						ctx->temp_id = new_id;
+
+						ctx->status = ST_NONE;
 					}
 				} else {
 					return user_err("unexpected ','");
@@ -575,7 +574,12 @@ uint8_t process(ctx_t *ctx, char ch) {
 						ast->array[top_id].ptr = ctx->temp_id;
 						break;
 					case FOR_LOOP: {
-						ast->array[ast->array[top_id].next_id].ptr = ctx->temp_id;
+						ast->array[ctx->temp_id].type = END_LOOP;
+						ast->array[ctx->temp_id].parent_id = top_id;
+						uint32_t new_id = new_node(ast);
+						ast->array[ctx->temp_id].next_id = new_id;
+						ctx->temp_id = new_id;
+						ast->array[ast->array[top_id].next_id].ptr = new_id;
 						break;
 					}
 					default: return user_err("unexpected '}'");

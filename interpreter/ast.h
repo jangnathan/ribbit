@@ -9,6 +9,7 @@ enum NODE_TYPE {
 	CALL,
 	IF,
 	FOR_LOOP,
+	END_LOOP,
 
 	VALUE,
 	REFERENCE,
@@ -34,7 +35,7 @@ uint8_t is_compare(enum NODE_TYPE type);
 enum NODE_STATE {
 	NS_NONE,
 	NS_BACK,
-	NS_END
+	NS_END,
 };
 
 typedef struct node {

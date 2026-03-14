@@ -41,6 +41,8 @@ int main(int argc, char *argv[]) {
 		print_chain(&preter);
 	} else if (strcmp(command, "chain") == 0) {
 		print_chain(&preter);
+	} else if (strcmp(command, "ul") == 0) {
+		print_unordered(&preter);
 	}
 
 	cleanup(&preter);

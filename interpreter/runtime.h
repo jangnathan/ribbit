@@ -8,3 +8,4 @@
 
 uint8_t run(interpreter_t *preter);
 uint8_t print_chain(interpreter_t *preter);
+uint8_t print_unordered(interpreter_t *preter);

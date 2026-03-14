@@ -1,9 +1,12 @@
 ten = 10
 print(ten == 1)
+print(ten)
 
 if ten == 1 {
 print("hi")
 }
 if ten == 10 {
+my_var = ten
 print("bye")
+print(my_var)
 }

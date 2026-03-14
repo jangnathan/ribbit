@@ -230,10 +230,25 @@ uint8_t run(interpreter_t *preter) {
 	values_t values = preter->values;
 	node_t *temp_node = &ast.array[0];
 	printf("-- RUNTIME --\n");
+	if (ast.len == 0) return 1;
+
 	while (temp_node->type != END) {
-		temp_node = &ast.array[temp_node->next_id];
 		switch (temp_node->type) {
 			case BLOCK: {
+				if (ast.array[temp_node->parent_id].type == FOR_LOOP) {
+					node_t top = ast.array[temp_node->parent_id];
+					uint32_t end_id;
+					eval_exp(preter, temp_node->next_id, &end_id);
+					value_t val = values.array[ast.array[temp_node->next_id].ptr];
+
+					if (val.type == BOOL && val.ptr != 0) {
+						temp_node = &ast.array[ast.array[end_id].next_id];
+						continue;
+					}
+					temp_node = &ast.array[temp_node->ptr];
+				} else {
+					temp_node = &ast.array[temp_node->next_id];
+				}
 				break;
 			}
 			case CALL: {
@@ -249,7 +264,8 @@ uint8_t run(interpreter_t *preter) {
 					print_value(preter, value);
 					printf("\n");
 				}
-				temp_node = &ast.array[end_id];
+
+				temp_node = &ast.array[ast.array[end_id].next_id];
 				break;
 			}
 			case DECLARATION: {
@@ -259,13 +275,13 @@ uint8_t run(interpreter_t *preter) {
 				eval_exp(preter, temp_node->next_id, &end_id);
 				var->ptr = ast.array[temp_node->next_id].ptr;
 
-				temp_node = &ast.array[end_id];
+				temp_node = &ast.array[ast.array[end_id].next_id];
 				break;
 			}
 			case IF: {
 				uint32_t end_id;
-				eval_exp(preter, temp_node->ptr, &end_id);
-				value_t val = values.array[temp_node->ptr];
+				eval_exp(preter, temp_node->next_id, &end_id);
+				value_t val = values.array[ast.array[temp_node->next_id].ptr];
 
 				// true
 				if (val.type == BOOL && val.ptr != 0) {
@@ -281,26 +297,26 @@ uint8_t run(interpreter_t *preter) {
 				temp_node = &ast.array[temp_node->ptr];
 				break;
 			}
+			case END_LOOP: {
+				uint32_t loop_id = temp_node->parent_id;
+				node_t top = ast.array[loop_id];
+				if (top.type == FOR_LOOP) {
+					uint32_t end_id;
+					eval_exp(preter, ast.array[top.next_id].next_id, &end_id);
+					value_t val = values.array[ast.array[ast.array[top.next_id].next_id].ptr];
+
+					if (val.type == BOOL && val.ptr != 0) {
+						temp_node = &ast.array[ast.array[end_id].next_id];
+						continue;
+					}
+					temp_node = &ast.array[ast.array[top.next_id].ptr];
+				}
+				break;
+			}
 			default: {
 			}
 		}
 
-		if (temp_node->state == NS_END) {
-			node_t top = ast.array[ast.array[temp_node->next_id].parent_id];
-			// this is the first iteration (straight after the init)
-			if (top.type == FOR_LOOP) {
-				uint32_t end_id;
-				eval_exp(preter, temp_node->next_id, &end_id);
-				value_t val = values.array[ast.array[temp_node->next_id].ptr];
-
-				if (val.type == BOOL && val.ptr != 0) {
-					temp_node = &ast.array[ast.array[end_id].next_id];
-					continue;
-				}
-
-				temp_node = &ast.array[top.ptr];
-			}
-		}
 	}
 	printf("-- END PROGRAM --\n");
 	return 1;
@@ -349,5 +365,14 @@ uint8_t print_chain(interpreter_t *preter) {
 		temp_node = &ast.array[id];
 	}
 	print_node(preter, id);
+	return 1;
+}
+
+uint8_t print_unordered(interpreter_t *preter) {
+	ast_t ast = preter->ast;
+	node_t *temp_node = &ast.array[0];
+	for (uint32_t i = 0; i < ast.len; i++) {
+		print_node(preter, i);
+	}
 	return 1;
 }
