@@ -20,23 +20,25 @@ char *nodetype_string[] = {
 	"MORE",
 	"LESS",
 	"MORE_EQUAL",
-	"LESS_EQUAL"
+	"LESS_EQUAL",
+
+	"CALL_PARAM",
 };
 void log_nodetype(enum NODE_TYPE type) {
 	printf("%s", nodetype_string[(uint8_t)type]);
 }
 
 uint8_t should_eval(enum NODE_TYPE type) {
-	return type >= ADD;
+	return type >= ADD && type <= LESS_EQUAL;
 }
 
 uint8_t is_compare(enum NODE_TYPE type) {
-	return type >= EQUAL;
+	return type >= EQUAL && type <= LESS_EQUAL;
 }
 
 uint8_t has_end_parenthesis(enum NODE_TYPE type) {
 	switch (type) {
-		case CALL:
+		case CALL_PARAM:
 		case PARENTHESIS:
 			return 1;
 		default:

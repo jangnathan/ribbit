@@ -7,12 +7,10 @@
 #include <string.h>
 
 uint32_t append_child(ast_t *ast, uint32_t temp_id) {
-	node_t *temp_node = &ast->array[temp_id];
 	uint32_t new_id = new_node(ast);
-
 	node_t *new = &ast->array[new_id];
 	new->parent_id = temp_id;
-	temp_node->next_id = new_id;
+	ast->array[temp_id].next_id = new_id;
 	return new_id;
 }
 
@@ -383,14 +381,11 @@ uint8_t process(ctx_t *ctx, char ch) {
 
 					func_t func = funcs->array[func_id];
 					if (func.n_param > 0) {
-						if (func.n_param == 1) {
-							ctx->temp_id = append_child(ast, ctx->temp_id);
-						} else {
-							ctx->temp_id = append_child(ast, ctx->temp_id);
-							ast->array[ctx->temp_id].type = PARENTHESIS;
+						ctx->temp_id = append_child(ast, ctx->temp_id);
+						ast->array[ctx->temp_id].type = CALL_PARAM;
+						ast->array[ctx->temp_id].ptr = new_value(values);
 
-							ctx->temp_id = append_child(ast, ctx->temp_id);
-						}
+						ctx->temp_id = append_child(ast, ctx->temp_id);
 					}
 				} else {
 					// could be just a variable
@@ -474,22 +469,23 @@ uint8_t process(ctx_t *ctx, char ch) {
 				while (!has_end_parenthesis(ast->array[top_id].type) && top_id != 0) {
 					top_id = ast->array[top_id].parent_id;
 				}
-				if (top_id == 0) return user_err("unexpected ')'");
+				if (top_id == 0) return user_err(" 1unexpected ')'");
 
 				switch (ast->array[top_id].type) {
-					case CALL: {
-						ast->array[ctx->temp_id].state = NS_END;
-						uint32_t new_id = new_node(ast);
-						node_t *new_node = &ast->array[new_id];
+					case CALL_PARAM: {
+						if (ast->array[ast->array[top_id].parent_id].type == CALL) {
+							ast->array[ctx->temp_id].state = NS_END;
+							uint32_t new_id = new_node(ast);
+							node_t *new_node = &ast->array[new_id];
 
-						ast->array[ctx->temp_id].next_id = new_id;
-						ctx->temp_id = new_id;
-						new_node->parent_id = ast->array[top_id].parent_id;
-
+							ast->array[ctx->temp_id].next_id = new_id;
+							ctx->temp_id = new_id;
+							new_node->parent_id = ast->array[top_id].parent_id;
+						}
 						break;
 					}
 					default:
-						return user_err("unexpected ')'");
+						return user_err(" 2unexpected ')'");
 				}
 			} else if (ch == ',') {
 				uint32_t loop_id = find_ancestor_of_type(ast, ctx->temp_id, FOR_LOOP);

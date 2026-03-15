@@ -35,10 +35,6 @@ uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 	// not adding a number is ok
 	// == string && != add then stop
 
-	if (parent.type != ADD && value.type == STRING) {
-		return user_err("Cannot perform any other arithmetic with string than add\n");
-	}
-
 	if (parent.next_id == id) {
 		if (is_compare(parent.type)) return 1;
 
@@ -71,6 +67,14 @@ uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 		return 1;
 	}
 
+	value_t val_first;
+	if (is_compare(parent.type)) {
+		if (ast.array[parent.next_id].type == REFERENCE) {
+			val_first = values.array[preter->vars.array[ast.array[parent.next_id].ptr].ptr];
+		} else {
+			val_first = values.array[ast.array[parent.next_id].ptr];
+		}
+	}
 	switch (parent.type) {
 		case ADD: {
 			if (value.type == STRING && parent_value->type == STRING) {
@@ -110,22 +114,18 @@ uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 					return user_err("integer is too large");
 				}
 				rt_ints->i64s[parent_value->ptr] += rt_ints->i64s[value.ptr];
-
 			}
 			break;
 		}
 		case EQUAL: {
-			value_t val_first = values.array[ast.array[parent.next_id].ptr];
 			parent_value->ptr = numbers_equal(rt_ints, val_first.type, val_first.ptr, value.type, value.ptr);
 			break;
 		}
 		case LESS: {
-			value_t val_first = values.array[ast.array[parent.next_id].ptr];
 			parent_value->ptr = numbers_less(rt_ints, val_first.type, val_first.ptr, value.type, value.ptr);
 			break;
 		}
 		case MORE: {
-			value_t val_first = values.array[ast.array[parent.next_id].ptr];
 			parent_value->ptr = numbers_less(rt_ints, val_first.type, val_first.ptr, value.type, value.ptr);
 			break;
 		}
@@ -146,21 +146,11 @@ void add2queue(queue_t *queue, uint32_t id) {
 	// take care of max queue issues at lexer-time
 }
 
-uint8_t eval_exp(interpreter_t *preter, uint32_t node_id, uint32_t *end_id) {
+uint8_t eval_exp(interpreter_t *preter, uint32_t id, uint32_t *end_id) {
 	ast_t ast = preter->ast;
-	node_t temp_node = ast.array[node_id];
-	uint32_t id = node_id;
+	node_t temp_node = ast.array[id];
 	queue_t queue;
 	queue.len = 0;
-
-	if (!should_eval(temp_node.type)) {
-		*end_id = id;
-		if (temp_node.type == REFERENCE) {
-			var_t var = preter->vars.array[temp_node.ptr];
-			ast.array[node_id].ptr = var.ptr;
-		}
-		return 1;
-	}
 
 	while (temp_node.state != NS_END) {
 		id = temp_node.next_id;
@@ -168,6 +158,7 @@ uint8_t eval_exp(interpreter_t *preter, uint32_t node_id, uint32_t *end_id) {
 
 		if (should_eval(temp_node.type)) {
 			add2queue(&queue, id);
+		} else if (temp_node.type == CALL_PARAM) {
 		} else {
 			if (!activate_node(preter, id)) return 0;
 			if (temp_node.state == NS_BACK || temp_node.state == NS_END) {
@@ -229,6 +220,8 @@ uint8_t run(interpreter_t *preter) {
 	vars_t vars = preter->vars;
 	values_t values = preter->values;
 	node_t *temp_node = &ast.array[0];
+	uint32_t id = 0;
+
 	printf("-- RUNTIME --\n");
 	if (ast.len == 0) return 1;
 
@@ -245,9 +238,9 @@ uint8_t run(interpreter_t *preter) {
 						temp_node = &ast.array[ast.array[end_id].next_id];
 						continue;
 					}
-					temp_node = &ast.array[temp_node->ptr];
+					id = temp_node->ptr;
 				} else {
-					temp_node = &ast.array[temp_node->next_id];
+					id = temp_node->next_id;
 				}
 				break;
 			}
@@ -256,7 +249,7 @@ uint8_t run(interpreter_t *preter) {
 				uint32_t end_id;
 
 				// first param
-				if (!eval_exp(preter, temp_node->next_id, &end_id)) return 0;
+				if (!eval_exp(preter, id, &end_id)) return 0;
 				func->params[0].ptr = ast.array[temp_node->next_id].ptr;
 
 				if (strcmp(func->name, "print") == 0) {
@@ -265,7 +258,7 @@ uint8_t run(interpreter_t *preter) {
 					printf("\n");
 				}
 
-				temp_node = &ast.array[ast.array[end_id].next_id];
+				id = ast.array[end_id].next_id;
 				break;
 			}
 			case DECLARATION: {
@@ -275,7 +268,7 @@ uint8_t run(interpreter_t *preter) {
 				eval_exp(preter, temp_node->next_id, &end_id);
 				var->ptr = ast.array[temp_node->next_id].ptr;
 
-				temp_node = &ast.array[ast.array[end_id].next_id];
+				id = ast.array[end_id].next_id;
 				break;
 			}
 			case IF: {
@@ -285,16 +278,16 @@ uint8_t run(interpreter_t *preter) {
 
 				// true
 				if (val.type == BOOL && val.ptr != 0) {
+					id = ast.array[end_id].next_id;
 					temp_node = &ast.array[ast.array[end_id].next_id];
-					continue;
+				} else {
+					id = temp_node->ptr;
 				}
-
-				temp_node = &ast.array[temp_node->ptr];
 				break;
 			}
 			case FOR_LOOP: {
 				// do the init process
-				temp_node = &ast.array[temp_node->ptr];
+				id = temp_node->ptr;
 				break;
 			}
 			case END_LOOP: {
@@ -306,17 +299,17 @@ uint8_t run(interpreter_t *preter) {
 					value_t val = values.array[ast.array[ast.array[top.next_id].next_id].ptr];
 
 					if (val.type == BOOL && val.ptr != 0) {
-						temp_node = &ast.array[ast.array[end_id].next_id];
-						continue;
+						id = ast.array[end_id].next_id;
+					} else {
+						id = ast.array[top.next_id].ptr;
 					}
-					temp_node = &ast.array[ast.array[top.next_id].ptr];
 				}
 				break;
 			}
 			default: {
 			}
 		}
-
+		temp_node = &ast.array[id];
 	}
 	printf("-- END PROGRAM --\n");
 	return 1;
