@@ -235,8 +235,8 @@ uint8_t run(interpreter_t *preter) {
 					value_t val = values.array[ast.array[temp_node->next_id].ptr];
 
 					if (val.type == BOOL && val.ptr != 0) {
-						temp_node = &ast.array[ast.array[end_id].next_id];
-						continue;
+						id = ast.array[end_id].next_id;
+						break;
 					}
 					id = temp_node->ptr;
 				} else {
@@ -279,7 +279,6 @@ uint8_t run(interpreter_t *preter) {
 				// true
 				if (val.type == BOOL && val.ptr != 0) {
 					id = ast.array[end_id].next_id;
-					temp_node = &ast.array[ast.array[end_id].next_id];
 				} else {
 					id = temp_node->ptr;
 				}

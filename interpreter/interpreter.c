@@ -238,12 +238,10 @@ uint8_t end_curly_braces(ctx_t *ctx) {
 
 	switch (ast->array[top_id].type) {
 		case IF:
-			printf("if");
 			ast->array[ctx->temp_id].parent_id = ast->array[top_id].parent_id;
 			ast->array[top_id].ptr = ctx->temp_id;
 			break;
 		case FOR_LOOP: {
-			printf("for");
 			ast->array[ctx->temp_id].type = END_LOOP;
 			ast->array[ctx->temp_id].parent_id = top_id;
 			uint32_t new_id = new_node(ast);
