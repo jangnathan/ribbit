@@ -230,8 +230,10 @@ uint8_t end_curly_braces(ctx_t *ctx) {
 	uint32_t top_id = ctx->temp_id;
 	while (!has_curly_braces(ast->array[top_id].type) && top_id != 0) {
 		top_id = ast->array[top_id].parent_id;
+		log_nodetype(ast->array[top_id].type);
+		printf("(%d)", top_id);
 	}
-	if (top_id == 0) return user_err("unexpected '{'");
+	if (top_id == 0) return user_err("unexpected '}'");
 
 	if (is_descendant_of_type(ast, ctx->temp_id, DECLARATION)) end_declare(ctx);
 	ctx->status = ST_NONE;
@@ -245,6 +247,7 @@ uint8_t end_curly_braces(ctx_t *ctx) {
 			ast->array[ctx->temp_id].type = END_LOOP;
 			ast->array[ctx->temp_id].parent_id = top_id;
 			uint32_t new_id = new_node(ast);
+			ast->array[new_id].parent_id = ast->array[top_id].parent_id;
 			ast->array[ctx->temp_id].next_id = new_id;
 			ctx->temp_id = new_id;
 			ast->array[ast->array[top_id].next_id].ptr = new_id;
@@ -561,7 +564,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 				while (!has_curly_braces(ast->array[top_id].type) && top_id != 0) {
 					top_id = ast->array[top_id].parent_id;
 				}
-				if (top_id == 0) return user_err("unexpected '{'");
+				if (top_id == 0) return user_err("2unexpected '{'");
 
 				switch (ast->array[top_id].type) {
 					case IF: {
@@ -591,7 +594,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 						break;
 					}
 					default:
-						return user_err("unexpected '{'");
+						return user_err("3unexpected '{'");
 				}
 			} else if (ch == '}') {
 				if (!end_curly_braces(ctx)) return 0;
