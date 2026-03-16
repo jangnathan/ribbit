@@ -219,6 +219,44 @@ void end_declare(ctx_t *ctx) {
 	}
 }
 
+uint8_t end_curly_braces(ctx_t *ctx) {
+	interpreter_t *preter = ctx->preter;
+	funcs_t *funcs = &preter->funcs;
+	vars_t *vars = &preter->vars;
+	values_t *values = &preter->values;
+	strings_t *strings = &preter->strings;
+	ast_t *ast = &preter->ast;
+
+	uint32_t top_id = ctx->temp_id;
+	while (!has_curly_braces(ast->array[top_id].type) && top_id != 0) {
+		top_id = ast->array[top_id].parent_id;
+	}
+	if (top_id == 0) return user_err("unexpected '{'");
+
+	if (is_descendant_of_type(ast, ctx->temp_id, DECLARATION)) end_declare(ctx);
+	ctx->status = ST_NONE;
+
+	switch (ast->array[top_id].type) {
+		case IF:
+			printf("if");
+			ast->array[ctx->temp_id].parent_id = ast->array[top_id].parent_id;
+			ast->array[top_id].ptr = ctx->temp_id;
+			break;
+		case FOR_LOOP: {
+			printf("for");
+			ast->array[ctx->temp_id].type = END_LOOP;
+			ast->array[ctx->temp_id].parent_id = top_id;
+			uint32_t new_id = new_node(ast);
+			ast->array[ctx->temp_id].next_id = new_id;
+			ctx->temp_id = new_id;
+			ast->array[ast->array[top_id].next_id].ptr = new_id;
+			break;
+		}
+		default: return user_err("unexpected '}'");
+	}
+	return 1;
+}
+
 uint8_t process(ctx_t *ctx, char ch) {
 	interpreter_t *preter = ctx->preter;
 	funcs_t *funcs = &preter->funcs;
@@ -299,6 +337,8 @@ uint8_t process(ctx_t *ctx, char ch) {
 
 				// create nums later
 				goto st_int;
+			} else if (ch == '}') {
+				if (!end_curly_braces(ctx)) return 0;
 			}
 			break;
 		}
@@ -480,7 +520,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 
 							ast->array[ctx->temp_id].next_id = new_id;
 							ctx->temp_id = new_id;
-							new_node->parent_id = ast->array[top_id].parent_id;
+							new_node->parent_id = ast->array[ast->array[top_id].parent_id].parent_id;
 						}
 						break;
 					}
@@ -556,31 +596,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 						return user_err("unexpected '{'");
 				}
 			} else if (ch == '}') {
-				uint32_t top_id = ctx->temp_id;
-				while (!has_curly_braces(ast->array[top_id].type) && top_id != 0) {
-					top_id = ast->array[top_id].parent_id;
-				}
-				if (top_id == 0) return user_err("unexpected '{'");
-
-				if (is_descendant_of_type(ast, ctx->temp_id, DECLARATION)) end_declare(ctx);
-				ctx->status = ST_NONE;
-
-				switch (ast->array[top_id].type) {
-					case IF:
-						ast->array[top_id].ptr = ctx->temp_id;
-						break;
-					case FOR_LOOP: {
-						ast->array[ctx->temp_id].type = END_LOOP;
-						ast->array[ctx->temp_id].parent_id = top_id;
-						uint32_t new_id = new_node(ast);
-						ast->array[ctx->temp_id].next_id = new_id;
-						ctx->temp_id = new_id;
-						ast->array[ast->array[top_id].next_id].ptr = new_id;
-						break;
-					}
-					default: return user_err("unexpected '}'");
-				}
-
+				if (!end_curly_braces(ctx)) return 0;
 				// a new statement / ending
 			} else if (is_lex(ch) || ch == '\0') {
 				if (is_descendant_of_type(ast, ctx->temp_id, DECLARATION)) {
