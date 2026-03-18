@@ -228,7 +228,7 @@ uint8_t run(interpreter_t *preter) {
 	while (temp_node->type != END) {
 		switch (temp_node->type) {
 			case BLOCK: {
-				if (ast.array[temp_node->parent_id].type == FOR_LOOP) {
+				if (ast.array[temp_node->parent_id].type == FOR_LOOP && ast.array[temp_node->parent_id].next_id == id) {
 					node_t top = ast.array[temp_node->parent_id];
 					uint32_t end_id;
 					eval_exp(preter, temp_node->next_id, &end_id);
@@ -238,7 +238,7 @@ uint8_t run(interpreter_t *preter) {
 						id = ast.array[end_id].next_id;
 						break;
 					}
-					id = temp_node->ptr;
+					id = ast.array[top.ptr].ptr;
 				} else {
 					id = temp_node->next_id;
 				}
@@ -286,22 +286,24 @@ uint8_t run(interpreter_t *preter) {
 			}
 			case FOR_LOOP: {
 				// do the init process
-				id = temp_node->ptr;
+				id = ast.array[temp_node->ptr].next_id;
 				break;
 			}
 			case END_LOOP: {
 				uint32_t loop_id = temp_node->parent_id;
 				node_t top = ast.array[loop_id];
+
 				if (top.type == FOR_LOOP) {
 					uint32_t end_id;
-					eval_exp(preter, ast.array[top.next_id].next_id, &end_id);
-					value_t val = values.array[ast.array[ast.array[top.next_id].next_id].ptr];
+					uint32_t condition_id = ast.array[top.next_id].next_id;
+					eval_exp(preter, condition_id, &end_id);
+					value_t val = values.array[ast.array[condition_id].ptr];
 
 					if (val.type == BOOL && val.ptr != 0) {
-						id = ast.array[end_id].next_id;
-					} else {
 						id = ast.array[top.next_id].ptr;
+						break;
 					}
+					id = temp_node->next_id;
 				}
 				break;
 			}

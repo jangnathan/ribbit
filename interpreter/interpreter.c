@@ -249,8 +249,8 @@ uint8_t end_curly_braces(ctx_t *ctx) {
 			uint32_t new_id = new_node(ast);
 			ast->array[new_id].parent_id = ast->array[top_id].parent_id;
 			ast->array[ctx->temp_id].next_id = new_id;
+			ast->array[ast->array[top_id].ptr].ptr = new_id;
 			ctx->temp_id = new_id;
-			ast->array[ast->array[top_id].next_id].ptr = new_id;
 			break;
 		}
 		default: return user_err("unexpected '}'");
@@ -396,15 +396,13 @@ uint8_t process(ctx_t *ctx, char ch) {
 				if (strcmp(ctx->lex, "for") == 0) {
 					ast->array[ctx->temp_id].type = FOR_LOOP;
 
-					// the inner loop code is in ptr as a BLOCK and the BLOCK will have ptr to end of loop
-					// the condition will be in next id of loop and at end it will point to inner loop code, which also includes the incriment
-					// this is the init statement (i = 0), it will be a node before for loop
-					// node creation errors will not happen if there are valid actions e.g. variable declarations / function calls
-
+					uint32_t block_id = new_node(ast);
+					ast->array[block_id].type = BLOCK;
+					ast->array[block_id].parent_id = ctx->temp_id;
+					ast->array[ctx->temp_id].ptr = block_id;
 					uint32_t new_id = new_node(ast);
-					node_t *new = &ast->array[new_id];
-					new->parent_id = ctx->temp_id;
-					ast->array[ctx->temp_id].ptr = new_id;
+					ast->array[block_id].next_id = new_id;
+					ast->array[new_id].parent_id = block_id;
 					ctx->temp_id = new_id;
 					ctx->status = ST_NONE;
 
@@ -533,10 +531,12 @@ uint8_t process(ctx_t *ctx, char ch) {
 				if (loop_id != 0) {
 					if (ast->array[loop_id].next_id == 0) {
 						if (is_descendant_of_type(ast, ctx->temp_id, DECLARATION)) end_declare(ctx);
-
-						ast->array[loop_id].next_id = ctx->temp_id;
+						// temp id is a new node
+						// block
 						ast->array[ctx->temp_id].type = BLOCK;
 						ast->array[ctx->temp_id].parent_id = loop_id;
+						ast->array[loop_id].next_id = ctx->temp_id;
+
 						uint32_t new_id = new_node(ast);
 						ast->array[ctx->temp_id].next_id = new_id;
 						ast->array[new_id].parent_id = ctx->temp_id;
@@ -546,14 +546,14 @@ uint8_t process(ctx_t *ctx, char ch) {
 						ctx->temp_id = new_id;
 					} else {
 						ast->array[ctx->temp_id].state = NS_END;
+						ast->array[ast->array[loop_id].ptr].ptr = ctx->temp_id;
 
+						// incremental
 						uint32_t new_id = new_node(ast);
-						ast->array[ctx->temp_id].next_id = new_id;
+						ast->array[ast->array[loop_id].next_id].ptr = new_id;
 						ast->array[new_id].parent_id = ast->array[loop_id].next_id;
 
-						// move onto the incremental now which is part of the inner loop so just carry on like normal
 						ctx->temp_id = new_id;
-
 						ctx->status = ST_NONE;
 					}
 				} else {
@@ -586,9 +586,11 @@ uint8_t process(ctx_t *ctx, char ch) {
 						uint32_t new_id = new_node(ast);
 						node_t *new_node = &ast->array[new_id];
 
-						ast->array[ctx->temp_id].next_id = new_id;
+						// remember this was a temporary use of ptr ptr
+						ast->array[ast->array[ast->array[top_id].ptr].ptr].next_id = new_id;
+						ast->array[ctx->temp_id].next_id = ast->array[top_id].next_id;
 						ctx->temp_id = new_id;
-						new_node->parent_id = top_id;
+						ast->array[new_id].parent_id = top_id;
 
 						ctx->status = ST_NONE;
 						break;
