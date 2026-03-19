@@ -340,6 +340,10 @@ uint8_t process(ctx_t *ctx, char ch) {
 				goto st_int;
 			} else if (ch == '}') {
 				if (!end_curly_braces(ctx)) return 0;
+			} else if (is_whitespace(ch) || ch == '\0') {
+			} else {
+				printf("'%c'", ch);
+				return user_err("unexpected char");
 			}
 			break;
 		}
