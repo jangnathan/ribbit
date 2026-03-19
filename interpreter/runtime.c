@@ -146,11 +146,18 @@ void add2queue(queue_t *queue, uint32_t id) {
 	// take care of max queue issues at lexer-time
 }
 
-uint8_t eval_exp(interpreter_t *preter, uint32_t id, uint32_t *end_id) {
+uint8_t eval_exp(interpreter_t *preter, uint32_t target_id, uint32_t *end_id, uint16_t *val_ptr) {
 	ast_t ast = preter->ast;
+	uint32_t id = target_id;
 	node_t temp_node = ast.array[id];
 	queue_t queue;
 	queue.len = 0;
+
+	if (temp_node.type == REFERENCE) {
+		*val_ptr = preter->vars.array[ast.array[target_id].ptr].ptr;
+		*end_id = target_id;
+		return 1;
+	}
 
 	while (temp_node.state != NS_END) {
 		id = temp_node.next_id;
@@ -158,7 +165,6 @@ uint8_t eval_exp(interpreter_t *preter, uint32_t id, uint32_t *end_id) {
 
 		if (should_eval(temp_node.type)) {
 			add2queue(&queue, id);
-		} else if (temp_node.type == CALL_PARAM) {
 		} else {
 			if (!activate_node(preter, id)) return 0;
 			if (temp_node.state == NS_BACK || temp_node.state == NS_END) {
@@ -178,6 +184,7 @@ uint8_t eval_exp(interpreter_t *preter, uint32_t id, uint32_t *end_id) {
 			queue.len = 0;
 		}*/
 	}
+	*val_ptr = ast.array[target_id].ptr;
 	*end_id = id;
 	return 1;
 }
@@ -231,8 +238,9 @@ uint8_t run(interpreter_t *preter) {
 				if (ast.array[temp_node->parent_id].type == FOR_LOOP && ast.array[temp_node->parent_id].next_id == id) {
 					node_t top = ast.array[temp_node->parent_id];
 					uint32_t end_id;
-					eval_exp(preter, temp_node->next_id, &end_id);
-					value_t val = values.array[ast.array[temp_node->next_id].ptr];
+					uint16_t val_id;
+					eval_exp(preter, temp_node->next_id, &end_id, &val_id);
+					value_t val = values.array[val_id];
 
 					if (val.type == BOOL && val.ptr != 0) {
 						id = ast.array[end_id].next_id;
@@ -247,10 +255,11 @@ uint8_t run(interpreter_t *preter) {
 			case CALL: {
 				func_t *func = &preter->funcs.array[temp_node->ptr];
 				uint32_t end_id;
+				uint16_t val_id;
 
 				// first param
-				if (!eval_exp(preter, id, &end_id)) return 0;
-				func->params[0].ptr = ast.array[temp_node->next_id].ptr;
+				if (!eval_exp(preter, id, &end_id, &val_id)) return 0;
+				func->params[0].ptr = val_id;
 
 				if (strcmp(func->name, "print") == 0) {
 					value_t value = preter->values.array[func->params[0].ptr];
@@ -264,17 +273,19 @@ uint8_t run(interpreter_t *preter) {
 			case DECLARATION: {
 				var_t *var = &vars.array[temp_node->ptr];
 				uint32_t end_id;
+				uint16_t val_id;
 
-				eval_exp(preter, temp_node->next_id, &end_id);
-				var->ptr = ast.array[temp_node->next_id].ptr;
+				eval_exp(preter, temp_node->next_id, &end_id, &val_id);
+				var->ptr = val_id;
 
 				id = ast.array[end_id].next_id;
 				break;
 			}
 			case IF: {
 				uint32_t end_id;
-				eval_exp(preter, temp_node->next_id, &end_id);
-				value_t val = values.array[ast.array[temp_node->next_id].ptr];
+				uint16_t val_id;
+				eval_exp(preter, temp_node->next_id, &end_id, &val_id);
+				value_t val = values.array[val_id];
 
 				// true
 				if (val.type == BOOL && val.ptr != 0) {
@@ -295,9 +306,10 @@ uint8_t run(interpreter_t *preter) {
 
 				if (top.type == FOR_LOOP) {
 					uint32_t end_id;
+					uint16_t val_id;
 					uint32_t condition_id = ast.array[top.next_id].next_id;
-					eval_exp(preter, condition_id, &end_id);
-					value_t val = values.array[ast.array[condition_id].ptr];
+					eval_exp(preter, condition_id, &end_id, &val_id);
+					value_t val = values.array[val_id];
 
 					if (val.type == BOOL && val.ptr != 0) {
 						id = ast.array[top.next_id].ptr;
@@ -343,6 +355,9 @@ uint8_t print_node(interpreter_t *preter, uint32_t id) {
 		if (value.type != UNDEFINED) {
 			printf("[%d]\n", value.ptr);
 		}
+	} else if (temp_node.type == REFERENCE) {
+		var_t var = preter->vars.array[temp_node.ptr];
+		printf("(REFERENCE): %s", var.name);
 	}
 	printf("\n");
 	return 1;

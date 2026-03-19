@@ -425,10 +425,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 					func_t func = funcs->array[func_id];
 					if (func.n_param > 0) {
 						ctx->temp_id = append_child(ast, ctx->temp_id);
-						ast->array[ctx->temp_id].type = CALL_PARAM;
 						ast->array[ctx->temp_id].ptr = new_value(values);
-
-						ctx->temp_id = append_child(ast, ctx->temp_id);
 					}
 				} else {
 					// could be just a variable
@@ -522,16 +519,14 @@ uint8_t process(ctx_t *ctx, char ch) {
 				if (top_id == 0) return user_err(" 1unexpected ')'");
 
 				switch (ast->array[top_id].type) {
-					case CALL_PARAM: {
-						if (ast->array[ast->array[top_id].parent_id].type == CALL) {
-							ast->array[ctx->temp_id].state = NS_END;
-							uint32_t new_id = new_node(ast);
-							node_t *new_node = &ast->array[new_id];
+					case CALL: {
+						ast->array[ctx->temp_id].state = NS_END;
+						uint32_t new_id = new_node(ast);
+						node_t *new_node = &ast->array[new_id];
 
-							ast->array[ctx->temp_id].next_id = new_id;
-							ctx->temp_id = new_id;
-							new_node->parent_id = ast->array[ast->array[top_id].parent_id].parent_id;
-						}
+						ast->array[ctx->temp_id].next_id = new_id;
+						new_node->parent_id = ast->array[ctx->temp_id].parent_id;
+						ctx->temp_id = new_id;
 						break;
 					}
 					default:

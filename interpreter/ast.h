@@ -24,8 +24,6 @@ enum NODE_TYPE {
 	LESS,
 	MORE_EQUAL,
 	LESS_EQUAL,
-
-	CALL_PARAM,
 };
 void log_nodetype(enum NODE_TYPE type);
 

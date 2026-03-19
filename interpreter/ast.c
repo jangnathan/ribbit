@@ -21,8 +21,6 @@ char *nodetype_string[] = {
 	"LESS",
 	"MORE_EQUAL",
 	"LESS_EQUAL",
-
-	"CALL_PARAM",
 };
 void log_nodetype(enum NODE_TYPE type) {
 	printf("%s", nodetype_string[(uint8_t)type]);
@@ -38,7 +36,7 @@ uint8_t is_compare(enum NODE_TYPE type) {
 
 uint8_t has_end_parenthesis(enum NODE_TYPE type) {
 	switch (type) {
-		case CALL_PARAM:
+		case CALL:
 		case PARENTHESIS:
 			return 1;
 		default:
