@@ -436,12 +436,18 @@ uint8_t process(ctx_t *ctx, char ch) {
 						temp_node->ptr = value_id;
 						ctx->preter->values.array[value_id].type = BOOL;
 						ctx->preter->values.array[value_id].ptr = 1;
+
+						ctx->status = ST_END;
+						goto st_end;
 					} else if (strcmp(ctx->lex, "false") == 0) {
 						temp_node->type = VALUE;
 						uint16_t value_id = new_value(&ctx->preter->values);
 						temp_node->ptr = value_id;
 						ctx->preter->values.array[value_id].type = BOOL;
 						ctx->preter->values.array[value_id].ptr = 0;
+
+						ctx->status = ST_END;
+						goto st_end;
 					}
 
 					ctx->status = ST_LEX_END;
@@ -461,6 +467,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 				int32_t var_id = get_var(vars, ctx->lex);
 				if (var_id == -1) {
 					printf("'%s'", ctx->lex);
+					// here, fix true false here
 					return user_err("variable doesnt exist");
 				}
 				temp_node->type = REFERENCE;
