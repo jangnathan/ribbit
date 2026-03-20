@@ -64,8 +64,9 @@ uint16_t node_value(interpreter_t *preter, node_t *node) {
 		case CALL: {
 			return preter->ast.array[node->ptr].ptr;
 		}
-		default:
-		return 0;
+		default: {
+			return node->ptr;
+		}
 	}
 }
 
