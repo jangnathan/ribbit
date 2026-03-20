@@ -420,12 +420,15 @@ uint8_t process(ctx_t *ctx, char ch) {
 					// if its a function
 					int32_t func_id = get_func(funcs, ctx->lex);
 					if (func_id == -1) return user_err("function doesnt exist");
+					uint32_t new_id = new_node(ast);
 					ast->array[ctx->temp_id].ptr = func_id;
+					ast->array[new_id].ptr = func_id;
+					ast->array[new_id].parent_id = ctx->temp_id;
+					ast->array[new_id].type = BLOCK;
 
 					func_t func = funcs->array[func_id];
 					if (func.n_param > 0) {
 						ctx->temp_id = append_child(ast, ctx->temp_id);
-						ast->array[ctx->temp_id].ptr = new_value(values);
 					}
 				} else {
 					// could be just a variable
@@ -525,7 +528,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 						node_t *new_node = &ast->array[new_id];
 
 						ast->array[ctx->temp_id].next_id = new_id;
-						new_node->parent_id = ast->array[ctx->temp_id].parent_id;
+						new_node->parent_id = ast->array[top_id].parent_id;
 						ctx->temp_id = new_id;
 						break;
 					}

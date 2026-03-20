@@ -11,6 +11,64 @@
 // check if the child is an exp and not literal
 // if the child is a number you must turn it into a string
 
+void print_value(interpreter_t *preter, value_t value) {
+	switch (value.type) {
+		case STRING: {
+			string_t content = preter->strings.array[value.ptr];
+			content.array[content.len] = '\0';
+			printf("%s", content.array);
+			break;
+		}
+		case I32: {
+			int32_t i32 = preter->rt_ints.i32s[value.ptr];
+			printf("%d", i32);
+			break;
+		}
+		case I64: {
+			int64_t i64 = preter->rt_ints.i64s[value.ptr];
+			printf("%lld", i64);
+			break;
+		}
+		case BOOL: {
+			if (value.ptr) {
+				printf("true");
+			} else {
+				printf("false");
+			}
+			break;
+		}
+		default: {
+			break;
+		}
+	}
+}
+
+void call(interpreter_t *preter, node_t *node, uint16_t params[MAX_PARAM_LEN]) {
+	func_t *func = &preter->funcs.array[preter->ast.array[node->ptr].ptr];
+
+	if (strcmp(func->name, "print") == 0) {
+		value_t value = preter->values.array[params[0]];
+		print_value(preter, value);
+		printf("\n");
+	}
+}
+
+uint16_t node_value(interpreter_t *preter, node_t *node) {
+	switch (node->type) {
+		case REFERENCE: {
+			return preter->vars.array[node->ptr].ptr;
+		}
+		case VALUE: {
+			return node->ptr;
+		}
+		case CALL: {
+			return preter->ast.array[node->ptr].ptr;
+		}
+		default:
+		return 0;
+	}
+}
+
 uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 	ast_t ast = preter->ast;
 	values_t values = preter->values;
@@ -21,12 +79,15 @@ uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 	node_t parent = ast.array[temp_node.parent_id];
 	value_t *parent_value = &values.array[parent.ptr];
 
-	value_t value;
-	if (temp_node.type == REFERENCE) {
-		var_t var = preter->vars.array[temp_node.ptr];
-		value = values.array[var.ptr];
-	} else {
-		value = values.array[temp_node.ptr];
+	//if (parent.type == CALL) return 1;
+	// we need to activate a function of necessary
+	// function -> queue
+	// function should only be called, maybe evaled if parent is a operator
+	// parameters -> end needs to eval Twice. END_CALL state??
+	if (temp_node.type == CALL) {
+		// call and store value in block -> ptr
+		uint16_t params[MAX_PARAM_LEN];
+		call(preter, &ast.array[id], params);
 	}
 
 	// adding a string is ok
@@ -34,6 +95,10 @@ uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 	// adding a number is ok
 	// not adding a number is ok
 	// == string && != add then stop
+
+	// should not modify parent pointer if parent were CALL or DECLARATION
+	if (!should_eval(parent.type)) return 1;
+	value_t value = values.array[node_value(preter, &temp_node)];
 
 	if (parent.next_id == id) {
 		if (is_compare(parent.type)) return 1;
@@ -163,7 +228,7 @@ uint8_t eval_exp(interpreter_t *preter, uint32_t target_id, uint32_t *end_id, ui
 		id = temp_node.next_id;
 		temp_node = ast.array[id];
 
-		if (should_eval(temp_node.type)) {
+		if (should_eval(temp_node.type) || temp_node.type == CALL) {
 			add2queue(&queue, id);
 		} else {
 			if (!activate_node(preter, id)) return 0;
@@ -187,38 +252,6 @@ uint8_t eval_exp(interpreter_t *preter, uint32_t target_id, uint32_t *end_id, ui
 	*val_ptr = ast.array[target_id].ptr;
 	*end_id = id;
 	return 1;
-}
-
-void print_value(interpreter_t *preter, value_t value) {
-	switch (value.type) {
-		case STRING: {
-			string_t content = preter->strings.array[value.ptr];
-			content.array[content.len] = '\0';
-			printf("%s", content.array);
-			break;
-		}
-		case I32: {
-			int32_t i32 = preter->rt_ints.i32s[value.ptr];
-			printf("%d", i32);
-			break;
-		}
-		case I64: {
-			int64_t i64 = preter->rt_ints.i64s[value.ptr];
-			printf("%lld", i64);
-			break;
-		}
-		case BOOL: {
-			if (value.ptr) {
-				printf("true");
-			} else {
-				printf("false");
-			}
-			break;
-		}
-		default: {
-			break;
-		}
-	}
 }
 
 // make it do math / evaluate
@@ -253,19 +286,18 @@ uint8_t run(interpreter_t *preter) {
 				break;
 			}
 			case CALL: {
-				func_t *func = &preter->funcs.array[temp_node->ptr];
+				func_t *func = &preter->funcs.array[ast.array[temp_node->ptr].ptr];
 				uint32_t end_id;
 				uint16_t val_id;
+				uint16_t params[MAX_PARAM_LEN];
 
 				// first param
-				if (!eval_exp(preter, id, &end_id, &val_id)) return 0;
-				func->params[0].ptr = val_id;
+				// make functions have outputs by...
+				// just use a get_value function to get reference ok of a node?
+				if (!eval_exp(preter, ast.array[id].next_id, &end_id, &val_id)) return 0;
+				params[0] = val_id;
 
-				if (strcmp(func->name, "print") == 0) {
-					value_t value = preter->values.array[func->params[0].ptr];
-					print_value(preter, value);
-					printf("\n");
-				}
+				call(preter, &ast.array[id], params);
 
 				id = ast.array[end_id].next_id;
 				break;
@@ -345,6 +377,9 @@ uint8_t print_node(interpreter_t *preter, uint32_t id) {
 			break;
 		case NS_END:
 			printf("end");
+			break;
+		case NS_CALL_END:
+			printf("end call");
 			break;
 	}
 	printf("\nPTR: %d: ", temp_node.ptr);

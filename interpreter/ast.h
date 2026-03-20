@@ -36,6 +36,7 @@ enum NODE_STATE {
 	NS_NONE,
 	NS_BACK,
 	NS_END,
+	NS_CALL_END,
 };
 
 typedef struct node {
