@@ -1,1 +1,4 @@
-ask("whats your name: ")
+name = ask("whats your name: ")
+print(name)
+print("Hello, "+ name)
+print("Bye, "+ name)

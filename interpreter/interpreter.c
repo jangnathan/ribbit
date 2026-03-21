@@ -74,39 +74,6 @@ uint32_t find_ancestor_of_type(ast_t *ast, uint32_t id, enum NODE_TYPE type) {
 	return 0;
 }
 
-uint8_t is_of(ast_t *ast, uint32_t id, uint32_t target) {
-	node_t node = ast->array[id];
-
-	while (id != 0) {
-		if (id == target) return 1;
-
-		id = node.parent_id;
-		node = ast->array[node.parent_id];
-	}
-	return 0;
-}
-
-uint8_t is_descendant_of(ast_t *ast, uint32_t id, uint32_t target) {
-	node_t node = ast->array[id];
-
-	while (node.parent_id != 0) {
-		id = node.parent_id;
-		node = ast->array[node.parent_id];
-		if (id == target) return 1;
-	}
-	return 0;
-}
-
-uint8_t is_descendant_of_type(ast_t *ast, uint32_t id, enum NODE_TYPE type) {
-	node_t node = ast->array[id];
-
-	while (node.parent_id != 0) {
-		node = ast->array[node.parent_id];
-		if (node.type == type) return 1;
-	}
-	return 0;
-}
-
 void build_top_node(ctx_t *ctx, enum NODE_TYPE type) {
 	interpreter_t *preter = ctx->preter;
 	ast_t *ast = &preter->ast;
@@ -204,19 +171,23 @@ void build_add_node(ctx_t *ctx) {
 	ctx->status = ST_NONE;
 }
 
-void end_declare(ctx_t *ctx) {
+void end_statement(ctx_t *ctx) {
 	ast_t *ast = &ctx->preter->ast;
-	uint32_t top_id = find_ancestor_of_type(ast, ctx->temp_id, DECLARATION);
-	if (top_id != 0) {
-		ast->array[ctx->temp_id].state = NS_END;
-
-		uint32_t new_id = new_node(ast);
-		node_t *new_node = &ast->array[new_id];
-		ast->array[ctx->temp_id].next_id = new_id;
-
-		ctx->temp_id = new_id;
-		new_node->parent_id = ast->array[top_id].parent_id;
+	uint32_t top_id = ctx->temp_id;
+	while (!is_statement(ast->array[top_id].type) && top_id != 0) {
+		top_id = ast->array[top_id].parent_id;
 	}
+	// no statements found
+	if (top_id == 0) return;
+
+	ast->array[ctx->temp_id].state = NS_END;
+
+	uint32_t new_id = new_node(ast);
+	node_t *new_node = &ast->array[new_id];
+	ast->array[ctx->temp_id].next_id = new_id;
+
+	ctx->temp_id = new_id;
+	new_node->parent_id = ast->array[top_id].parent_id;
 }
 
 uint8_t end_curly_braces(ctx_t *ctx) {
@@ -235,7 +206,7 @@ uint8_t end_curly_braces(ctx_t *ctx) {
 	}
 	if (top_id == 0) return user_err("unexpected '}'");
 
-	if (is_descendant_of_type(ast, ctx->temp_id, DECLARATION)) end_declare(ctx);
+	end_statement(ctx);
 	ctx->status = ST_NONE;
 
 	switch (ast->array[top_id].type) {
@@ -421,7 +392,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 					int32_t func_id = get_func(funcs, ctx->lex);
 					if (func_id == -1) return user_err("function doesnt exist");
 					uint32_t new_id = new_node(ast);
-					ast->array[ctx->temp_id].ptr = func_id;
+					ast->array[ctx->temp_id].ptr = new_id;
 					ast->array[new_id].ptr = func_id;
 					ast->array[new_id].parent_id = ctx->temp_id;
 					ast->array[new_id].type = BLOCK;
@@ -489,7 +460,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 				ctx->status = ST_END;
 				str->array[str->len] = '\0';
 			} else {
-				add_char2string_w_id(str, ch);
+				add_char2string(str, ch);
 			}
 			break;
 		}
@@ -523,13 +494,9 @@ uint8_t process(ctx_t *ctx, char ch) {
 
 				switch (ast->array[top_id].type) {
 					case CALL: {
-						ast->array[ctx->temp_id].state = NS_END;
+						ast->array[ctx->temp_id].state = NS_END_CALL;
 						uint32_t new_id = new_node(ast);
 						node_t *new_node = &ast->array[new_id];
-
-						ast->array[ctx->temp_id].next_id = new_id;
-						new_node->parent_id = ast->array[top_id].parent_id;
-						ctx->temp_id = new_id;
 						break;
 					}
 					default:
@@ -539,7 +506,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 				uint32_t loop_id = find_ancestor_of_type(ast, ctx->temp_id, FOR_LOOP);
 				if (loop_id != 0) {
 					if (ast->array[loop_id].next_id == 0) {
-						if (is_descendant_of_type(ast, ctx->temp_id, DECLARATION)) end_declare(ctx);
+						end_statement(ctx);
 						// temp id is a new node
 						// block
 						ast->array[ctx->temp_id].type = BLOCK;
@@ -611,9 +578,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 				if (!end_curly_braces(ctx)) return 0;
 				// a new statement / ending
 			} else if (is_lex(ch) || ch == '\0') {
-				if (is_descendant_of_type(ast, ctx->temp_id, DECLARATION)) {
-					end_declare(ctx);
-				}
+				end_statement(ctx);
 				ctx->status = ST_NONE;
 				goto st_none;
 			} else {

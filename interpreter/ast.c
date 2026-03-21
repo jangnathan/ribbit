@@ -26,6 +26,16 @@ void log_nodetype(enum NODE_TYPE type) {
 	printf("%s", nodetype_string[(uint8_t)type]);
 }
 
+uint8_t is_statement(enum NODE_TYPE type) {
+	switch (type) {
+		case CALL:
+		case DECLARATION:
+		return 1;
+		default:
+		return 0;
+	}
+}
+
 uint8_t should_eval(enum NODE_TYPE type) {
 	return type >= ADD && type <= LESS_EQUAL;
 }

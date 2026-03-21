@@ -29,6 +29,8 @@ void funcs_init(funcs_t *funcs) {
 
 	func_t *print = &funcs->array[new_func(funcs, "print")];
 	func_add_param(print, "content");
+	func_t *ask = &funcs->array[new_func(funcs, "ask")];
+	func_add_param(ask, "question");
 }
 
 int32_t get_func(funcs_t *funcs, char *name) {

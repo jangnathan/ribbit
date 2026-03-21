@@ -44,28 +44,44 @@ void print_value(interpreter_t *preter, value_t value) {
 }
 
 void call(interpreter_t *preter, node_t *node, uint16_t params[MAX_PARAM_LEN]) {
-	func_t *func = &preter->funcs.array[preter->ast.array[node->ptr].ptr];
+	uint16_t func_id = preter->ast.array[node->ptr].ptr;
 
-	if (strcmp(func->name, "print") == 0) {
+	// print
+	if (func_id == 0) {
 		value_t value = preter->values.array[params[0]];
 		print_value(preter, value);
 		printf("\n");
+	} else if (func_id == 1) {
+		value_t value = preter->values.array[params[0]];
+		print_value(preter, value);
+
+		uint16_t out_val = new_value(&preter->values);
+		preter->ast.array[node->ptr].next_id = out_val;
+		uint16_t str_id = new_string(&preter->strings);
+		preter->values.array[out_val].ptr = str_id;
+		preter->values.array[out_val].type = STRING;
+
+		char ch;
+		while ((ch = fgetc(stdin)) != '\n') {
+			add_char2string(&preter->strings.array[str_id], ch);
+		}
 	}
 }
 
-uint16_t node_value(interpreter_t *preter, node_t *node) {
-	switch (node->type) {
+uint16_t node_value(interpreter_t *preter, uint32_t id) {
+	node_t node = preter->ast.array[id];
+	switch (node.type) {
 		case REFERENCE: {
-			return preter->vars.array[node->ptr].ptr;
+			return preter->vars.array[node.ptr].ptr;
 		}
 		case VALUE: {
-			return node->ptr;
+			return node.ptr;
 		}
 		case CALL: {
-			return preter->ast.array[node->ptr].ptr;
+			return preter->ast.array[node.ptr].next_id;
 		}
 		default: {
-			return node->ptr;
+			return node.ptr;
 		}
 	}
 }
@@ -88,6 +104,7 @@ uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 	if (temp_node.type == CALL) {
 		// call and store value in block -> ptr
 		uint16_t params[MAX_PARAM_LEN];
+		params[0] = node_value(preter, temp_node.next_id);
 		call(preter, &ast.array[id], params);
 	}
 
@@ -99,7 +116,7 @@ uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 
 	// should not modify parent pointer if parent were CALL or DECLARATION
 	if (!should_eval(parent.type)) return 1;
-	value_t value = values.array[node_value(preter, &temp_node)];
+	value_t value = values.array[node_value(preter, id)];
 
 	if (parent.next_id == id) {
 		if (is_compare(parent.type)) return 1;
@@ -212,20 +229,14 @@ void add2queue(queue_t *queue, uint32_t id) {
 	// take care of max queue issues at lexer-time
 }
 
-uint8_t eval_exp(interpreter_t *preter, uint32_t target_id, uint32_t *end_id, uint16_t *val_ptr) {
+uint8_t eval_exp(interpreter_t *preter, uint32_t target_id, uint32_t *end_id) {
 	ast_t ast = preter->ast;
 	uint32_t id = target_id;
 	node_t temp_node = ast.array[id];
 	queue_t queue;
 	queue.len = 0;
 
-	if (temp_node.type == REFERENCE) {
-		*val_ptr = preter->vars.array[ast.array[target_id].ptr].ptr;
-		*end_id = target_id;
-		return 1;
-	}
-
-	while (temp_node.state != NS_END) {
+	while (temp_node.state != NS_END && temp_node.state != NS_END_CALL) {
 		id = temp_node.next_id;
 		temp_node = ast.array[id];
 
@@ -235,6 +246,13 @@ uint8_t eval_exp(interpreter_t *preter, uint32_t target_id, uint32_t *end_id, ui
 			if (!activate_node(preter, id)) return 0;
 			if (temp_node.state == NS_BACK || temp_node.state == NS_END) {
 				if (queue.len > 0) {
+					queue.len--;
+					uint32_t node_id = queue.array[queue.len];
+					if (!activate_node(preter, node_id)) return 0;
+				}
+			}
+			if (temp_node.state == NS_END_CALL) {
+				while (queue.len > 0) {
 					queue.len--;
 					uint32_t node_id = queue.array[queue.len];
 					if (!activate_node(preter, node_id)) return 0;
@@ -250,7 +268,6 @@ uint8_t eval_exp(interpreter_t *preter, uint32_t target_id, uint32_t *end_id, ui
 			queue.len = 0;
 		}*/
 	}
-	*val_ptr = ast.array[target_id].ptr;
 	*end_id = id;
 	return 1;
 }
@@ -272,9 +289,8 @@ uint8_t run(interpreter_t *preter) {
 				if (ast.array[temp_node->parent_id].type == FOR_LOOP && ast.array[temp_node->parent_id].next_id == id) {
 					node_t top = ast.array[temp_node->parent_id];
 					uint32_t end_id;
-					uint16_t val_id;
-					eval_exp(preter, temp_node->next_id, &end_id, &val_id);
-					value_t val = values.array[val_id];
+					eval_exp(preter, ast.array[id].next_id, &end_id);
+					value_t val = values.array[node_value(preter, ast.array[id].next_id)];
 
 					if (val.type == BOOL && val.ptr != 0) {
 						id = ast.array[end_id].next_id;
@@ -289,14 +305,13 @@ uint8_t run(interpreter_t *preter) {
 			case CALL: {
 				func_t *func = &preter->funcs.array[ast.array[temp_node->ptr].ptr];
 				uint32_t end_id;
-				uint16_t val_id;
 				uint16_t params[MAX_PARAM_LEN];
 
 				// first param
 				// make functions have outputs by...
 				// just use a get_value function to get reference ok of a node?
-				if (!eval_exp(preter, ast.array[id].next_id, &end_id, &val_id)) return 0;
-				params[0] = val_id;
+				if (!eval_exp(preter, id, &end_id)) return 0;
+				params[0] = node_value(preter, ast.array[id].next_id);
 
 				call(preter, &ast.array[id], params);
 
@@ -306,10 +321,9 @@ uint8_t run(interpreter_t *preter) {
 			case DECLARATION: {
 				var_t *var = &vars.array[temp_node->ptr];
 				uint32_t end_id;
-				uint16_t val_id;
 
-				eval_exp(preter, temp_node->next_id, &end_id, &val_id);
-				var->ptr = val_id;
+				eval_exp(preter, id, &end_id);
+				var->ptr = node_value(preter, ast.array[id].next_id);
 
 				id = ast.array[end_id].next_id;
 				break;
@@ -317,8 +331,8 @@ uint8_t run(interpreter_t *preter) {
 			case IF: {
 				uint32_t end_id;
 				uint16_t val_id;
-				eval_exp(preter, temp_node->next_id, &end_id, &val_id);
-				value_t val = values.array[val_id];
+				eval_exp(preter, id, &end_id);
+				value_t val = values.array[node_value(preter, ast.array[id].next_id)];
 
 				// true
 				if (val.type == BOOL && val.ptr != 0) {
@@ -341,8 +355,8 @@ uint8_t run(interpreter_t *preter) {
 					uint32_t end_id;
 					uint16_t val_id;
 					uint32_t condition_id = ast.array[top.next_id].next_id;
-					eval_exp(preter, condition_id, &end_id, &val_id);
-					value_t val = values.array[val_id];
+					eval_exp(preter, condition_id, &end_id);
+					value_t val = values.array[node_value(preter, condition_id)];
 
 					if (val.type == BOOL && val.ptr != 0) {
 						id = ast.array[top.next_id].ptr;
@@ -379,7 +393,7 @@ uint8_t print_node(interpreter_t *preter, uint32_t id) {
 		case NS_END:
 			printf("end");
 			break;
-		case NS_CALL_END:
+		case NS_END_CALL:
 			printf("end call");
 			break;
 	}

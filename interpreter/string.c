@@ -24,7 +24,7 @@ uint16_t new_string(strings_t *strings) {
 	return strings->len - 1;
 }
 
-void add_char2string_w_id(string_t *str, char ch) {
+void add_char2string(string_t *str, char ch) {
 	str->array[str->len] = ch;
 	str->len++;
 	if (str->len >= str->size) {

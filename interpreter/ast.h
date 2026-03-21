@@ -29,6 +29,7 @@ void log_nodetype(enum NODE_TYPE type);
 
 uint8_t has_end_parenthesis(enum NODE_TYPE type);
 uint8_t has_curly_braces(enum NODE_TYPE type);
+uint8_t is_statement(enum NODE_TYPE type);
 uint8_t should_eval(enum NODE_TYPE type);
 uint8_t is_compare(enum NODE_TYPE type);
 
@@ -36,7 +37,7 @@ enum NODE_STATE {
 	NS_NONE,
 	NS_BACK,
 	NS_END,
-	NS_CALL_END,
+	NS_END_CALL,
 };
 
 typedef struct node {
