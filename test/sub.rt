@@ -1,0 +1,2 @@
+out = 3 - 2
+print(out)

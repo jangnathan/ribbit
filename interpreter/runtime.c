@@ -314,14 +314,14 @@ uint8_t eval_exp(interpreter_t *preter, uint32_t target_id, uint32_t *end_id) {
 			add2queue(&queue, id);
 		} else {
 			if (!activate_node(preter, id)) return 0;
-			if (temp_node.state == NS_BACK || temp_node.state == NS_END) {
+			if (temp_node.state == NS_BACK) {
 				if (queue.len > 0) {
 					queue.len--;
 					uint32_t node_id = queue.array[queue.len];
 					if (!activate_node(preter, node_id)) return 0;
 				}
 			}
-			if (temp_node.state == NS_END_CALL) {
+			if (temp_node.state == NS_END_CALL || temp_node.state == NS_END) {
 				while (queue.len > 0) {
 					queue.len--;
 					uint32_t node_id = queue.array[queue.len];

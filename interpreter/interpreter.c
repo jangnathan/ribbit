@@ -110,63 +110,72 @@ void build_top_node(ctx_t *ctx, enum NODE_TYPE type) {
 
 	ctx->status = ST_NONE;
 }
-void build_add_node(ctx_t *ctx) {
+
+// follow PEMDAS
+// use to insert itself in node, using data of last node
+
+// md of PEMDAS
+void build_md_node(ctx_t *ctx, enum NODE_TYPE type) {
 	interpreter_t *preter = ctx->preter;
 	ast_t *ast = &preter->ast;
 	values_t *values = &preter->values;
 
-	node_t *og_node = &ast->array[ctx->temp_id];
-	node_t *parent = &ast->array[og_node->parent_id];
+	uint32_t temp_id = ctx->temp_id;
+	node_t temp = ast->array[temp_id];
 
-	if (should_eval(parent->type) && parent->type != EQUAL) {
-		uint32_t oper_id = new_node(ast);
-		node_t *oper = &ast->array[oper_id];
-		node_t *grandpa = &ast->array[parent->parent_id];
-		parent = &ast->array[og_node->parent_id];
+	uint32_t copy_id = new_node(ast);
+	ast->array[copy_id].parent_id = temp_id;
+	ast->array[copy_id].ptr = temp.ptr;
+	ast->array[copy_id].type = temp.type;
 
-		grandpa->next_id = oper_id;
-		oper->next_id = og_node->parent_id;
-		oper->parent_id = parent->parent_id;
-		parent->parent_id = oper_id;
+	ast->array[temp_id].type = type;
+	ast->array[temp_id].ptr = new_value(values);
+	ast->array[temp_id].next_id = copy_id;
 
-		oper->type = ADD;
-		oper->ptr = new_value(values);
+	uint32_t new_id = new_node(ast);
+	ast->array[new_id].parent_id = temp_id;
+	ast->array[copy_id].next_id = new_id;
 
-		uint32_t new_id = new_node(ast);
-		node_t *new_node = &ast->array[new_id];
-		new_node->parent_id = oper_id;
-		new_node->state = NS_BACK;
+	ctx->temp_id = new_id;
+	ast->array[new_id].state = NS_BACK;
 
-		og_node = &ast->array[ctx->temp_id];
-		og_node->next_id = new_id;
-		ctx->temp_id = new_id;
-	} else {
-		uint32_t copy_id = new_node(ast);
-		node_t *copy = &ast->array[copy_id];
+	ctx->status = ST_NONE;
+}
 
-		copy->type = og_node->type;
-		copy->ptr = og_node->ptr;
-		copy->parent_id = ctx->temp_id;
-		// next id is set
-		copy->state = 0;
+void build_as_node(ctx_t *ctx, enum NODE_TYPE type) {
+	interpreter_t *preter = ctx->preter;
+	ast_t *ast = &preter->ast;
+	values_t *values = &preter->values;
 
-		og_node = &ast->array[ctx->temp_id];
-		og_node->type = ADD;
-		og_node->ptr = new_value(values);
-		// parent is already set
-		og_node->next_id = copy_id;
-		og_node->state = 0;
-
-		uint32_t new_id = new_node(ast);
-		node_t *new_node = &ast->array[new_id];
-		new_node->parent_id = ctx->temp_id;
-
-		copy = &ast->array[copy_id];
-
-		ctx->temp_id = new_id;
-		copy->next_id = new_id;
-		new_node->state = NS_BACK;
+	uint32_t temp_id = ctx->temp_id;
+	node_t temp = ast->array[temp_id];
+	
+	if (ast->array[temp.parent_id].type >= DIV) {
+		build_md_node(ctx, type);
+		return;
 	}
+
+	// highest node of PEMD of PEMDAS
+	while (ast->array[temp.parent_id].type <= DIV && should_eval(ast->array[temp.parent_id].type)) {
+		temp_id = temp.parent_id;
+		temp = ast->array[temp_id];
+	}
+
+	uint32_t op_id = new_node(ast);
+	ast->array[op_id].type = type;
+	ast->array[op_id].ptr = new_value(values);
+	ast->array[op_id].next_id = temp_id;
+	ast->array[op_id].parent_id = temp.parent_id;
+	ast->array[temp.parent_id].next_id = op_id;
+	ast->array[op_id].state = 0;
+	ast->array[temp_id].parent_id = op_id;
+
+	uint32_t new_id = new_node(ast);
+	ast->array[new_id].parent_id = op_id;
+	ast->array[new_id].state = NS_BACK;
+	ast->array[ctx->temp_id].next_id = new_id;
+
+	ctx->temp_id = new_id;
 
 	ctx->status = ST_NONE;
 }
@@ -471,7 +480,19 @@ uint8_t process(ctx_t *ctx, char ch) {
 		st_end:
 			if (is_whitespace(ch)) break;
 			if (ch == '+') {
-				build_add_node(ctx);
+				build_as_node(ctx, ADD);
+				break;
+			}
+			if (ch == '-') {
+				build_as_node(ctx, SUB);
+				break;
+			}
+			if (ch == '*') {
+				build_md_node(ctx, MUL);
+				break;
+			}
+			if (ch == '/') {
+				build_md_node(ctx, DIV);
 				break;
 			}
 			if (ch == '<') {

@@ -15,9 +15,12 @@ enum NODE_TYPE {
 	REFERENCE,
 
 	// exp
+	// order in pemdas
+	PARENTHESIS, // just to group things together
+	MUL,
+	DIV,
 	ADD,
 	SUB,
-	PARENTHESIS, // just to group things together
 	EQUAL,
 	NOT_EQUAL,
 	MORE,

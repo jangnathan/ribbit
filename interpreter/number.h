@@ -1,6 +1,6 @@
 #pragma once
-#include "value.h"
 #include "constants.h"
+#include <stdint.h>
 
 typedef struct {
 	int32_t *i32s;
@@ -26,7 +26,13 @@ void delete_i64(rt_ints_t *rt_ints, uint16_t id);
 uint16_t new_i32(rt_ints_t *rt_ints);
 uint16_t new_i64(rt_ints_t *rt_ints);
 
-void parse_number(rt_ints_t *rt_ints, value_t *value, char lex[MAX_LEX_LEN], uint8_t len);
-
-uint8_t numbers_equal(rt_ints_t *rt_ints, enum DATATYPE l_type, uint16_t l_ptr, enum DATATYPE r_type, uint16_t r_ptr);
-uint8_t numbers_less(rt_ints_t *rt_ints, enum DATATYPE l_type, uint16_t l_ptr, enum DATATYPE r_type, uint16_t r_ptr);
+uint8_t i32_equal_i32(rt_ints_t *rt_ints, uint16_t l, uint16_t r);
+uint8_t i32_equal_i64(rt_ints_t *rt_ints, uint16_t l, uint16_t r);
+uint8_t i64_equal_i64(rt_ints_t *rt_ints, uint16_t l, uint16_t r);
+uint8_t i64_equal_bool(rt_ints_t *rt_ints, uint16_t l, uint8_t r);
+uint8_t i32_equal_bool(rt_ints_t *rt_ints, uint16_t l, uint8_t r);
+uint8_t i32_less_i32(rt_ints_t *rt_ints, uint16_t l, uint16_t r);
+uint8_t i32_less_i64(rt_ints_t *rt_ints, uint16_t l, uint16_t r);
+uint8_t i64_less_i64(rt_ints_t *rt_ints, uint16_t l, uint16_t r);
+uint8_t i64_less_bool(rt_ints_t *rt_ints, uint16_t l, uint8_t r);
+uint8_t i32_less_bool(rt_ints_t *rt_ints, uint16_t l, uint8_t r);

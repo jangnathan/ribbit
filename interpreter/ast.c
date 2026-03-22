@@ -12,15 +12,18 @@ char *nodetype_string[] = {
 	"END_LOOP",
 	"VALUE",
 	"REFERENCE",
+	"PARENTHESIS",
+	"MUL",
+	"DIV",
 	"ADD",
 	"SUB",
-	"PARENTHESIS",
 	"EQUAL",
 	"NOT_EQUAL",
 	"MORE",
 	"LESS",
 	"MORE_EQUAL",
-	"LESS_EQUAL",
+	"LESS_EQUAL"
+
 };
 void log_nodetype(enum NODE_TYPE type) {
 	printf("%s", nodetype_string[(uint8_t)type]);
@@ -37,7 +40,7 @@ uint8_t is_statement(enum NODE_TYPE type) {
 }
 
 uint8_t should_eval(enum NODE_TYPE type) {
-	return type >= ADD && type <= LESS_EQUAL;
+	return type >= PARENTHESIS && type <= LESS_EQUAL;
 }
 
 uint8_t is_compare(enum NODE_TYPE type) {
