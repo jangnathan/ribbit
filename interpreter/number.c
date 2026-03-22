@@ -15,6 +15,7 @@ void rt_ints_init(rt_ints_t *rt_ints) {
 	rt_ints->i64_q_len = 0;
 }
 
+// simply add to the queue
 void delete_i32(rt_ints_t *rt_ints, uint16_t id) {
 	rt_ints->i32_q[rt_ints->i32_q_len] = id;
 	rt_ints->i32_q_len++;

@@ -3,6 +3,7 @@
 #include <string.h>
 
 void strings_init(strings_t *strings) {
+	strings->q_len = 0;
 	strings->len = 0;
 	strings->size = 4;
 	strings->array = malloc(sizeof(string_t) * strings->size);
@@ -15,13 +16,26 @@ uint16_t new_string(strings_t *strings) {
 		strings->array = temp_ptr;
 	}
 
-	string_t *str = &strings->array[strings->len];
-	strings->len++;
+	uint16_t id;
+	if (strings->q_len > 0) {
+		strings->q_len--;
+		id = strings->q[strings->q_len];
+	} else {
+		id = strings->len;
+		strings->len++;
+	}
+	string_t *str = &strings->array[id];
 
 	str->len = 0;
 	str->size = 8;
 	str->array = malloc(sizeof(char) * str->size);
-	return strings->len - 1;
+	return id;
+}
+
+void delete_string(strings_t *strings, uint32_t id) {
+	free(strings->array[id].array);
+	strings->q[strings->q_len] = id;
+	strings->q_len++;
 }
 
 void add_char2string(string_t *str, char ch) {

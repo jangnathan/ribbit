@@ -72,7 +72,7 @@ uint16_t node_value(interpreter_t *preter, uint32_t id) {
 	node_t node = preter->ast.array[id];
 	switch (node.type) {
 		case REFERENCE: {
-			return preter->vars.array[node.ptr].ptr;
+			return preter->vars.array[preter->ast.array[node.ptr].ptr].ptr;
 		}
 		case VALUE: {
 			return node.ptr;
@@ -83,6 +83,80 @@ uint16_t node_value(interpreter_t *preter, uint32_t id) {
 		default: {
 			return node.ptr;
 		}
+	}
+}
+
+void copy_value(interpreter_t *preter, uint16_t out_id, uint16_t in_id) {
+	ast_t ast = preter->ast;
+	values_t values = preter->values;
+	strings_t *strings = &preter->strings;
+	rt_ints_t *rt_ints = &preter->rt_ints;
+
+	value_t *out = &values.array[out_id];
+	value_t *in = &values.array[in_id];
+
+	// delete original value if datatypes are different
+	if (out->type != in->type) {
+		switch (out->type) {
+			case UNDEFINED:
+				break;
+			case STRING:
+				delete_string(strings, out->ptr);
+				break;
+			case I32:
+				delete_i32(rt_ints, out->ptr);
+				break;
+			case I64:
+				delete_i64(rt_ints, out->ptr);
+				break;
+			case FLOAT:
+				// WIP
+				break;
+			case BOOL:
+				break;
+		}
+
+		out->type = in->type;
+		switch (in->type) {
+			case UNDEFINED:
+				break;
+			case STRING: {
+				uint32_t str_id = new_string(strings);
+				out->ptr = str_id;
+				break;
+			}
+			case I32: {
+				out->ptr = new_i32(rt_ints);
+				break;
+			}
+			case I64: {
+				out->ptr = new_i64(rt_ints);
+				break;
+			}
+			case FLOAT:
+				break;
+			case BOOL:
+				out->ptr = in->ptr;
+				break;
+		}
+	}
+	switch (out->type) {
+		case UNDEFINED:
+			break;
+		case STRING:
+			copy_string_w_id(strings, out->ptr, in->ptr);
+			break;
+		case I32:
+			rt_ints->i32s[out->ptr] = rt_ints->i32s[in->ptr];
+			break;
+		case I64:
+			rt_ints->i64s[out->ptr] = rt_ints->i64s[in->ptr];
+			break;
+		case FLOAT:
+			break;
+		case BOOL:
+			out->ptr = in->ptr;
+			break;
 	}
 }
 
@@ -140,8 +214,8 @@ uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 				if (parent_value->type == UNDEFINED) {
 					parent_value->ptr = new_i64(rt_ints);
 				}
-				break;
 				rt_ints->i64s[parent_value->ptr] = rt_ints->i64s[value.ptr];
+				break;
 			}
 			default: {
 			}
@@ -152,11 +226,7 @@ uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 
 	value_t val_first;
 	if (is_compare(parent.type)) {
-		if (ast.array[parent.next_id].type == REFERENCE) {
-			val_first = values.array[preter->vars.array[ast.array[parent.next_id].ptr].ptr];
-		} else {
-			val_first = values.array[ast.array[parent.next_id].ptr];
-		}
+		val_first = values.array[node_value(preter, parent.next_id)];
 	}
 	switch (parent.type) {
 		case ADD: {
@@ -322,8 +392,15 @@ uint8_t run(interpreter_t *preter) {
 				var_t *var = &vars.array[temp_node->ptr];
 				uint32_t end_id;
 
-				eval_exp(preter, id, &end_id);
-				var->ptr = node_value(preter, ast.array[id].next_id);
+				node_t next = ast.array[temp_node->next_id];
+				if (next.type == REFERENCE) {
+					copy_value(preter, ast.array[next.ptr].next_id, vars.array[ast.array[next.ptr].ptr].ptr);
+					var->ptr = ast.array[next.ptr].next_id;
+					end_id = temp_node->next_id;
+				} else {
+					eval_exp(preter, id, &end_id);
+					var->ptr = node_value(preter, temp_node->next_id);
+				}
 
 				id = ast.array[end_id].next_id;
 				break;
@@ -406,7 +483,7 @@ uint8_t print_node(interpreter_t *preter, uint32_t id) {
 			printf("[%d]\n", value.ptr);
 		}
 	} else if (temp_node.type == REFERENCE) {
-		var_t var = preter->vars.array[temp_node.ptr];
+		var_t var = preter->vars.array[preter->ast.array[temp_node.ptr].ptr];
 		printf("(REFERENCE): %s", var.name);
 	}
 	printf("\n");

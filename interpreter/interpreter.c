@@ -171,6 +171,24 @@ void build_add_node(ctx_t *ctx) {
 	ctx->status = ST_NONE;
 }
 
+uint8_t build_ref_node(ctx_t *ctx) {
+	interpreter_t *preter = ctx->preter;
+	int32_t var_id = get_var(&preter->vars, ctx->lex);
+	if (var_id == -1) {
+		printf("'%s'", ctx->lex);
+		return user_err("variable doesnt exist");
+	}
+
+	preter->ast.array[ctx->temp_id].type = REFERENCE;
+	uint32_t new_id = new_node(&preter->ast);
+	preter->ast.array[ctx->temp_id].ptr = new_id;
+	// next_id is to store temp , ptr is for reference
+	preter->ast.array[new_id].ptr = var_id;
+	preter->ast.array[new_id].type = BLOCK;
+	preter->ast.array[new_id].next_id = new_value(&preter->values);
+	return 1;
+}
+
 void end_statement(ctx_t *ctx) {
 	ast_t *ast = &ctx->preter->ast;
 	uint32_t top_id = ctx->temp_id;
@@ -241,13 +259,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 		// it means the previous symbol was an equal sign
 		case ST_EQUAL_SYMBOL_LEX: {
 			if (ch == '=') {
-				int32_t var_id = get_var(vars, ctx->lex);
-				if (var_id == -1) {
-					printf("'%s'", ctx->lex);
-					return user_err("variable doesnt exist");
-				}
-				ast->array[ctx->temp_id].type = REFERENCE;
-				ast->array[ctx->temp_id].ptr = var_id;
+				if (!build_ref_node(ctx)) return 0;
 				build_top_node(ctx, EQUAL);
 			} else {
 				if (strcmp(ctx->lex, "true") == 0) {
@@ -438,16 +450,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 			if (ch == '=') {
 				ctx->status = ST_EQUAL_SYMBOL_LEX;
 			} else {
-				node_t *temp_node = &ast->array[ctx->temp_id];
-				int32_t var_id = get_var(vars, ctx->lex);
-				if (var_id == -1) {
-					printf("'%s'", ctx->lex);
-					// here, fix true false here
-					return user_err("variable doesnt exist");
-				}
-				temp_node->type = REFERENCE;
-				temp_node->ptr = var_id;
-
+				if (!build_ref_node(ctx)) return 0;
 				ctx->status = ST_END;
 				goto st_end;
 			}
@@ -495,8 +498,6 @@ uint8_t process(ctx_t *ctx, char ch) {
 				switch (ast->array[top_id].type) {
 					case CALL: {
 						ast->array[ctx->temp_id].state = NS_END_CALL;
-						uint32_t new_id = new_node(ast);
-						node_t *new_node = &ast->array[new_id];
 						break;
 					}
 					default:
@@ -562,12 +563,11 @@ uint8_t process(ctx_t *ctx, char ch) {
 						uint32_t new_id = new_node(ast);
 						node_t *new_node = &ast->array[new_id];
 
-						// remember this was a temporary use of ptr ptr
+						// remember this was a temporary use of ptr ptr, used for the end of condition node
 						ast->array[ast->array[ast->array[top_id].ptr].ptr].next_id = new_id;
 						ast->array[ctx->temp_id].next_id = ast->array[top_id].next_id;
 						ctx->temp_id = new_id;
 						ast->array[new_id].parent_id = top_id;
-
 						ctx->status = ST_NONE;
 						break;
 					}
