@@ -155,8 +155,11 @@ void build_as_node(ctx_t *ctx, enum NODE_TYPE type) {
 		return;
 	}
 
+	temp_id = temp.parent_id;
+	temp = ast->array[temp_id];
+
 	// highest node of PEMD of PEMDAS
-	while (ast->array[temp.parent_id].type <= DIV && should_eval(ast->array[temp.parent_id].type)) {
+	while (temp.type <= DIV && should_eval(temp.type)) {
 		temp_id = temp.parent_id;
 		temp = ast->array[temp_id];
 	}
@@ -164,11 +167,11 @@ void build_as_node(ctx_t *ctx, enum NODE_TYPE type) {
 	uint32_t op_id = new_node(ast);
 	ast->array[op_id].type = type;
 	ast->array[op_id].ptr = new_value(values);
-	ast->array[op_id].next_id = temp_id;
-	ast->array[op_id].parent_id = temp.parent_id;
-	ast->array[temp.parent_id].next_id = op_id;
+	ast->array[op_id].next_id = temp.next_id;
+	ast->array[temp.next_id].parent_id = op_id;
+	ast->array[op_id].parent_id = temp_id;
+	ast->array[temp_id].next_id = op_id;
 	ast->array[op_id].state = 0;
-	ast->array[temp_id].parent_id = op_id;
 
 	uint32_t new_id = new_node(ast);
 	ast->array[new_id].parent_id = op_id;

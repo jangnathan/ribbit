@@ -3,7 +3,6 @@
 #include "user_error.h"
 
 #include <string.h>
-
 // decide temp values for evaluation in stack
 // so no need for inefficient free and malloc
 
@@ -267,6 +266,98 @@ uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 					return user_err("integer is too large");
 				}
 				rt_ints->i64s[parent_value->ptr] += rt_ints->i64s[value.ptr];
+			}
+			break;
+		}
+		case SUB: {
+			if (value.type == I32 && parent_value->type == I32) {
+				int32_t i32_1 = rt_ints->i32s[parent_value->ptr];
+				int32_t i32_2 = rt_ints->i32s[value.ptr];
+
+				// left - right < min32
+				// left < min32 + right
+				if (i32_1 < INT32_MIN + i32_2) {
+					// turn into i64
+					delete_i32(rt_ints, parent_value->ptr);
+					parent_value->ptr = new_i64(rt_ints);
+					rt_ints->i64s[parent_value->ptr] -= i32_2;
+				} else {
+					rt_ints->i32s[parent_value->ptr] = i32_1 - i32_2;
+				}
+			} else if (value.type == I64 && parent_value->type == I64) {
+				int32_t i64_1 = rt_ints->i64s[parent_value->ptr];
+				int32_t i64_2 = rt_ints->i64s[value.ptr];
+				if (i64_1 < INT64_MIN + i64_2) {
+					return user_err("integer is too large");
+				}
+				rt_ints->i64s[parent_value->ptr] -= rt_ints->i64s[value.ptr];
+			} else if (value.type == I32 && parent_value->type == I64) {
+				rt_ints->i64s[parent_value->ptr] -= rt_ints->i32s[value.ptr];
+			} else if (value.type == I64 && parent_value->type == I32) {
+				delete_i32(rt_ints, parent_value->ptr);
+				parent_value->ptr = new_i64(rt_ints);
+				int32_t i64_1 = rt_ints->i64s[parent_value->ptr];
+				int32_t i64_2 = rt_ints->i64s[value.ptr];
+				if (i64_1 < INT64_MIN + i64_2) {
+					return user_err("integer is too large");
+				}
+				rt_ints->i64s[parent_value->ptr] -= rt_ints->i64s[value.ptr];
+			}
+			break;
+		}
+		case MUL: {
+			if (value.type == I32 && parent_value->type == I32) {
+				int32_t i32_1 = rt_ints->i32s[parent_value->ptr];
+				int32_t i32_2 = rt_ints->i32s[value.ptr];
+
+				// checking for overflows as smartly
+				// 2^16 = root(2^32)
+				if (abs(i32_1) > INT16_MAX || abs(i32_2) > INT16_MAX) {
+					// turn into i64
+					delete_i32(rt_ints, parent_value->ptr);
+					parent_value->ptr = new_i64(rt_ints);
+					rt_ints->i64s[parent_value->ptr] *= i32_2;
+				} else {
+					rt_ints->i32s[parent_value->ptr] = i32_1 * i32_2;
+				}
+			} else if (value.type == I64 && parent_value->type == I64) {
+				int32_t i64_1 = rt_ints->i64s[parent_value->ptr];
+				int32_t i64_2 = rt_ints->i64s[value.ptr];
+				// overflow will break this
+				rt_ints->i64s[parent_value->ptr] *= rt_ints->i64s[value.ptr];
+			} else if (value.type == I32 && parent_value->type == I64) {
+				rt_ints->i64s[parent_value->ptr] *= rt_ints->i32s[value.ptr];
+			} else if (value.type == I64 && parent_value->type == I32) {
+				delete_i32(rt_ints, parent_value->ptr);
+				parent_value->ptr = new_i64(rt_ints);
+				int32_t i64_1 = rt_ints->i64s[parent_value->ptr];
+				int32_t i64_2 = rt_ints->i64s[value.ptr];
+
+				// overflow will break this
+				rt_ints->i64s[parent_value->ptr] *= rt_ints->i64s[value.ptr];
+			}
+			break;
+		}
+		case DIV: {
+			if (value.type == I32 && parent_value->type == I32) {
+				int32_t i32_1 = rt_ints->i32s[parent_value->ptr];
+				int32_t i32_2 = rt_ints->i32s[value.ptr];
+
+				// no overflows possible I think
+				rt_ints->i32s[parent_value->ptr] = i32_1 / i32_2;
+			} else if (value.type == I64 && parent_value->type == I64) {
+				int32_t i64_1 = rt_ints->i64s[parent_value->ptr];
+				int32_t i64_2 = rt_ints->i64s[value.ptr];
+				rt_ints->i64s[parent_value->ptr] /= rt_ints->i64s[value.ptr];
+			} else if (value.type == I32 && parent_value->type == I64) {
+				rt_ints->i64s[parent_value->ptr] /= rt_ints->i32s[value.ptr];
+			} else if (value.type == I64 && parent_value->type == I32) {
+				delete_i32(rt_ints, parent_value->ptr);
+				parent_value->ptr = new_i64(rt_ints);
+				int32_t i64_1 = rt_ints->i64s[parent_value->ptr];
+				int32_t i64_2 = rt_ints->i64s[value.ptr];
+
+				rt_ints->i64s[parent_value->ptr] /= rt_ints->i64s[value.ptr];
 			}
 			break;
 		}

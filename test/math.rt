@@ -1,0 +1,2 @@
+math = 9 * 2 + 1 + 2 + 5 * 2
+print(math)

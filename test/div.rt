@@ -1,0 +1,5 @@
+div = 9 / 3
+print(div)
+
+div = 9 / 2
+print(div)
