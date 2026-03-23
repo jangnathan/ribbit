@@ -25,16 +25,3 @@ uint8_t char2digit(char ch) {
 	uint8_t chn = (uint8_t)ch;
 	return chn - 48;
 }
-uint8_t is_operator(char ch) {
-	if (ch=='+'||ch=='-'||ch=='/'||ch=='*'||
-		ch=='<'||ch=='>') {
-		return 1;
-	}
-	return 0;
-}
-
-uint8_t is_ender(char ch) {
-	if (ch == '+' || ch == ')' ||
-		is_lex(ch) || ch == '\0' || ch == '=') return 1;
-	return 0;
-}
