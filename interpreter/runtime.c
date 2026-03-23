@@ -42,8 +42,9 @@ void print_value(interpreter_t *preter, value_t value) {
 	}
 }
 
-void call(interpreter_t *preter, node_t *node, uint16_t params[MAX_PARAM_LEN]) {
-	uint16_t func_id = preter->ast.array[node->ptr].ptr;
+void call(interpreter_t *preter, uint32_t id, uint16_t params[MAX_PARAM_LEN]) {
+	node_t node = preter->ast.array[id];
+	uint16_t func_id = preter->ast.array[node.ptr].ptr;
 
 	// print
 	if (func_id == 0) {
@@ -54,11 +55,18 @@ void call(interpreter_t *preter, node_t *node, uint16_t params[MAX_PARAM_LEN]) {
 		value_t value = preter->values.array[params[0]];
 		print_value(preter, value);
 
-		uint16_t out_val = new_value(&preter->values);
-		preter->ast.array[node->ptr].next_id = out_val;
-		uint16_t str_id = new_string(&preter->strings);
-		preter->values.array[out_val].ptr = str_id;
-		preter->values.array[out_val].type = STRING;
+		uint16_t out_val; uint16_t str_id;
+		if (preter->ast.array[node.ptr].next_id == 0) {
+			out_val = new_value(&preter->values);
+			preter->values.array[out_val].type = STRING;
+			preter->ast.array[node.ptr].next_id = out_val;
+			str_id = new_string(&preter->strings);
+			preter->values.array[out_val].ptr = str_id;
+		} else {
+			out_val = preter->ast.array[node.ptr].next_id;
+			str_id = preter->values.array[out_val].ptr;
+			preter->strings.array[str_id].len = 0;
+		}
 
 		char ch;
 		while ((ch = fgetc(stdin)) != '\n') {
@@ -178,7 +186,7 @@ uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 		// call and store value in block -> ptr
 		uint16_t params[MAX_PARAM_LEN];
 		params[0] = node_value(preter, temp_node.next_id);
-		call(preter, &ast.array[id], params);
+		call(preter, id, params);
 	}
 
 	// adding a string is ok
@@ -474,7 +482,7 @@ uint8_t run(interpreter_t *preter) {
 				if (!eval_exp(preter, id, &end_id)) return 0;
 				params[0] = node_value(preter, ast.array[id].next_id);
 
-				call(preter, &ast.array[id], params);
+				call(preter, id, params);
 
 				id = ast.array[end_id].next_id;
 				break;

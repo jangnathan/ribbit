@@ -1,0 +1,8 @@
+numbers = ""
+numbers = numbers + "hello"
+
+for i=0,i<3,i=i+1 {
+numbers = numbers + " " + ask("anything to add? ")
+}
+
+print(numbers)

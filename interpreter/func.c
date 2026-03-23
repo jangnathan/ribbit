@@ -27,10 +27,15 @@ void funcs_init(funcs_t *funcs) {
 	funcs->size = 4;
 	funcs->array = malloc(sizeof(func_t) * funcs->size);
 
+	// prints
 	func_t *print = &funcs->array[new_func(funcs, "print")];
 	func_add_param(print, "content");
+	// input
 	func_t *ask = &funcs->array[new_func(funcs, "ask")];
 	func_add_param(ask, "question");
+	// turn number into string, or bool into string
+	func_t *str = &funcs->array[new_func(funcs, "str")];
+	func_add_param(ask, "number");
 }
 
 int32_t get_func(funcs_t *funcs, char *name) {
