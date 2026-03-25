@@ -74,6 +74,17 @@ uint32_t find_ancestor_of_type(ast_t *ast, uint32_t id, enum NODE_TYPE type) {
 	return 0;
 }
 
+uint32_t find_first_ancestor_statement(ast_t *ast, uint32_t id) {
+	node_t node = ast->array[id];
+
+	while (node.parent_id != 0) {
+		id = node.parent_id;
+		node = ast->array[id];
+		if (is_statement(node.type)) return id;
+	}
+	return 0;
+}
+
 void build_top_node(ctx_t *ctx, enum NODE_TYPE type) {
 	interpreter_t *preter = ctx->preter;
 	ast_t *ast = &preter->ast;
@@ -114,6 +125,41 @@ void build_top_node(ctx_t *ctx, enum NODE_TYPE type) {
 // follow PEMDAS
 // use to insert itself in node, using data of last node
 
+void wedge_node(ctx_t *ctx, enum NODE_TYPE type, uint32_t id) {
+	interpreter_t *preter = ctx->preter;
+	ast_t *ast = &preter->ast;
+	values_t *values = &preter->values;
+
+	uint32_t temp_id = ast->array[id].parent_id;
+	node_t temp = ast->array[temp_id];
+
+	// highest node of PEMD of PEMDAS
+	while (temp.type <= DIV && should_eval(temp.type)) {
+		temp_id = temp.parent_id;
+		temp = ast->array[temp_id];
+	}
+	if (should_eval(temp.type)) {
+		temp_id = temp.parent_id;
+		temp = ast->array[temp_id];
+	}
+
+	uint32_t op_id = new_node(ast);
+	ast->array[op_id].type = type;
+	ast->array[op_id].ptr = new_value(values);
+	ast->array[op_id].next_id = temp.next_id;
+	ast->array[temp.next_id].parent_id = op_id;
+	ast->array[op_id].parent_id = temp_id;
+	ast->array[temp_id].next_id = op_id;
+	ast->array[op_id].state = 0;
+
+	uint32_t new_id = new_node(ast);
+	ast->array[new_id].parent_id = op_id;
+	ast->array[new_id].state = NS_BACK;
+	ast->array[ctx->temp_id].next_id = new_id;
+
+	ctx->temp_id = new_id;
+}
+
 // md of PEMDAS
 void build_md_node(ctx_t *ctx, enum NODE_TYPE type) {
 	interpreter_t *preter = ctx->preter;
@@ -122,6 +168,13 @@ void build_md_node(ctx_t *ctx, enum NODE_TYPE type) {
 
 	uint32_t temp_id = ctx->temp_id;
 	node_t temp = ast->array[temp_id];
+
+	// has call / declaration statement build as node
+	if (temp.state == NS_END_CALL) {
+		temp_id = find_ancestor_of_type(ast, temp_id, CALL);
+		wedge_node(ctx, type, temp_id);
+		return;
+	}
 
 	uint32_t copy_id = new_node(ast);
 	ast->array[copy_id].parent_id = temp_id;
@@ -150,35 +203,16 @@ void build_as_node(ctx_t *ctx, enum NODE_TYPE type) {
 	uint32_t temp_id = ctx->temp_id;
 	node_t temp = ast->array[temp_id];
 	
-	if (ast->array[temp.parent_id].type >= DIV) {
+	// if under a statement, go to it, only if ending in end_call
+	if (temp.state == NS_END_CALL) {
+		temp_id = find_ancestor_of_type(ast, temp_id, CALL);
+		// set temp to call
+	} else if (ast->array[temp.parent_id].type >= ADD || !should_eval(ast->array[temp.parent_id].type)) {
 		build_md_node(ctx, type);
 		return;
 	}
 
-	temp_id = temp.parent_id;
-	temp = ast->array[temp_id];
-
-	// highest node of PEMD of PEMDAS
-	while (temp.type <= DIV && should_eval(temp.type)) {
-		temp_id = temp.parent_id;
-		temp = ast->array[temp_id];
-	}
-
-	uint32_t op_id = new_node(ast);
-	ast->array[op_id].type = type;
-	ast->array[op_id].ptr = new_value(values);
-	ast->array[op_id].next_id = temp.next_id;
-	ast->array[temp.next_id].parent_id = op_id;
-	ast->array[op_id].parent_id = temp_id;
-	ast->array[temp_id].next_id = op_id;
-	ast->array[op_id].state = 0;
-
-	uint32_t new_id = new_node(ast);
-	ast->array[new_id].parent_id = op_id;
-	ast->array[new_id].state = NS_BACK;
-	ast->array[ctx->temp_id].next_id = new_id;
-
-	ctx->temp_id = new_id;
+	wedge_node(ctx, type, temp_id);
 
 	ctx->status = ST_NONE;
 }
@@ -201,7 +235,19 @@ uint8_t build_ref_node(ctx_t *ctx) {
 	return 1;
 }
 
-void end_statement(ctx_t *ctx) {
+void end_statement(ctx_t *ctx, uint32_t statement_id) {
+	ast_t *ast = &ctx->preter->ast;
+
+	uint32_t new_id = new_node(ast);
+	node_t *new_node = &ast->array[new_id];
+	ast->array[ctx->temp_id].next_id = new_id;
+	ast->array[ctx->temp_id].state = NS_END;
+
+	ctx->temp_id = new_id;
+	new_node->parent_id = ast->array[statement_id].parent_id;
+}
+
+void find_and_end_statement(ctx_t *ctx) {
 	ast_t *ast = &ctx->preter->ast;
 	uint32_t top_id = ctx->temp_id;
 	while (!is_statement(ast->array[top_id].type) && top_id != 0) {
@@ -210,7 +256,14 @@ void end_statement(ctx_t *ctx) {
 	// no statements found
 	if (top_id == 0) return;
 
-	ast->array[ctx->temp_id].state = NS_END;
+	switch (ast->array[top_id].type) {
+		case CALL:
+		case DECLARATION:
+			ast->array[ctx->temp_id].state = NS_END;
+			break;
+		default:
+			break;
+	}
 
 	uint32_t new_id = new_node(ast);
 	node_t *new_node = &ast->array[new_id];
@@ -236,7 +289,7 @@ uint8_t end_curly_braces(ctx_t *ctx) {
 	}
 	if (top_id == 0) return user_err("unexpected '}'");
 
-	end_statement(ctx);
+	find_and_end_statement(ctx);
 	ctx->status = ST_NONE;
 
 	switch (ast->array[top_id].type) {
@@ -531,7 +584,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 				uint32_t loop_id = find_ancestor_of_type(ast, ctx->temp_id, FOR_LOOP);
 				if (loop_id != 0) {
 					if (ast->array[loop_id].next_id == 0) {
-						end_statement(ctx);
+						find_and_end_statement(ctx);
 						// temp id is a new node
 						// block
 						ast->array[ctx->temp_id].type = BLOCK;
@@ -546,7 +599,9 @@ uint8_t process(ctx_t *ctx, char ch) {
 						ast->array[new_id].ptr = new_value(values);
 						ctx->temp_id = new_id;
 					} else {
-						ast->array[ctx->temp_id].state = NS_END;
+						if (ast->array[ctx->temp_id].state != NS_END_CALL) {
+							ast->array[ctx->temp_id].state = NS_END;
+						}
 						ast->array[ast->array[loop_id].ptr].ptr = ctx->temp_id;
 
 						// incremental
@@ -569,7 +624,9 @@ uint8_t process(ctx_t *ctx, char ch) {
 
 				switch (ast->array[top_id].type) {
 					case IF: {
-						ast->array[ctx->temp_id].state = NS_END;
+						if (ast->array[ctx->temp_id].state != NS_END_CALL) {
+							ast->array[ctx->temp_id].state = NS_END;
+						}
 
 						uint32_t new_id = new_node(ast);
 						node_t *new_node = &ast->array[new_id];
@@ -582,7 +639,9 @@ uint8_t process(ctx_t *ctx, char ch) {
 						break;
 					}
 					case FOR_LOOP: {
-						ast->array[ctx->temp_id].state = NS_END;
+						if (ast->array[ctx->temp_id].state != NS_END_CALL) {
+							ast->array[ctx->temp_id].state = NS_END;
+						}
 
 						uint32_t new_id = new_node(ast);
 						node_t *new_node = &ast->array[new_id];
@@ -602,7 +661,9 @@ uint8_t process(ctx_t *ctx, char ch) {
 				if (!end_curly_braces(ctx)) return 0;
 				// a new statement / ending
 			} else if (is_lex(ch) || ch == '\0') {
-				end_statement(ctx);
+				// Make lexer next time; save time Possibly
+				find_and_end_statement(ctx);
+
 				ctx->status = ST_NONE;
 				goto st_none;
 			} else {
@@ -622,11 +683,13 @@ uint8_t process(ctx_t *ctx, char ch) {
 
 uint8_t load_file(ctx_t *ctx, FILE *file) {
 	char ch;
+	interpreter_t *preter = ctx->preter;
 	while ((ch = fgetc(file)) != EOF) {
 		if (!process(ctx, ch)) return 0;
 	}
 	if (!process(ctx, '\0')) return 0;
-	if (ctx->status != ST_NONE) {
+	if (ctx->status != ST_NONE ||
+		preter->ast.array[ctx->temp_id].type != END) {
 		return user_err("unfinished statement");
 	}
 	return 1;

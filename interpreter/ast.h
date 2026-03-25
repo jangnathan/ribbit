@@ -43,6 +43,8 @@ enum NODE_STATE {
 	NS_END_CALL,
 };
 
+uint8_t is_activate_state(enum NODE_STATE state);
+
 typedef struct node {
 	uint32_t ptr;
 	uint32_t next_id;

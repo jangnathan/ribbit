@@ -9,22 +9,22 @@ void func_add_param(func_t *func, char *name) {
 }
 
 uint16_t new_func(funcs_t *funcs, char *name) {
-	if (funcs->len >= funcs->size) {
-		funcs->size *= 2;
-		funcs->array = realloc(funcs->array, sizeof(func_t) * funcs->size);
-	}
-
 	func_t *func = &funcs->array[funcs->len];
 	funcs->len++;
 
 	strcpy(func->name, name);
 	func->n_param = 0;
+
+	if (funcs->len >= funcs->size) {
+		funcs->size *= 2;
+		funcs->array = realloc(funcs->array, sizeof(func_t) * funcs->size);
+	}
 	return funcs->len - 1;
 }
 
 void funcs_init(funcs_t *funcs) {
 	funcs->len = 0;
-	funcs->size = 4;
+	funcs->size = 8;
 	funcs->array = malloc(sizeof(func_t) * funcs->size);
 
 	// prints
@@ -35,7 +35,11 @@ void funcs_init(funcs_t *funcs) {
 	func_add_param(ask, "question");
 	// turn number into string, or bool into string
 	func_t *str = &funcs->array[new_func(funcs, "str")];
-	func_add_param(ask, "number");
+	func_add_param(str, "number");
+
+	// turns str into int, naming collisions with keyword made it int_func
+	func_t *int_func = &funcs->array[new_func(funcs, "int")];
+	func_add_param(int_func, "str");
 }
 
 int32_t get_func(funcs_t *funcs, char *name) {

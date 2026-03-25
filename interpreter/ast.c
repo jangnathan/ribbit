@@ -65,6 +65,16 @@ uint8_t has_curly_braces(enum NODE_TYPE type) {
 			return 0;
 	}
 }
+uint8_t is_activate_state(enum NODE_STATE state) {
+	switch (state) {
+		case NS_BACK:
+		case NS_END:
+		case NS_END_CALL:
+			return 1;
+		default:
+			return 0;
+	}
+}
 
 uint32_t new_node(ast_t *ast) {
 	node_t *new = &ast->array[ast->len];

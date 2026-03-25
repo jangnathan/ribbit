@@ -1,0 +1,6 @@
+my_str = "hello"
+for i=0,i<10,i=i+1 {
+my_str = my_str + str(i)
+}
+
+print(my_str)

@@ -25,3 +25,6 @@ uint8_t char2digit(char ch) {
 	uint8_t chn = (uint8_t)ch;
 	return chn - 48;
 }
+char digit2char(uint8_t digit) {
+	return digit + 48;
+}

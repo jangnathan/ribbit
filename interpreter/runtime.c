@@ -1,8 +1,10 @@
 #include "runtime.h"
 #include "string.h"
 #include "user_error.h"
+#include "helpers.h"
 
 #include <string.h>
+#include <math.h>
 // decide temp values for evaluation in stack
 // so no need for inefficient free and malloc
 
@@ -42,16 +44,15 @@ void print_value(interpreter_t *preter, value_t value) {
 	}
 }
 
-void call(interpreter_t *preter, uint32_t id, uint16_t params[MAX_PARAM_LEN]) {
+uint8_t call(interpreter_t *preter, uint32_t id, uint16_t params[MAX_PARAM_LEN]) {
 	node_t node = preter->ast.array[id];
 	uint16_t func_id = preter->ast.array[node.ptr].ptr;
 
-	// print
-	if (func_id == 0) {
+	if (func_id == 0) { // print()
 		value_t value = preter->values.array[params[0]];
 		print_value(preter, value);
 		printf("\n");
-	} else if (func_id == 1) {
+	} else if (func_id == 1) { // ask()
 		value_t value = preter->values.array[params[0]];
 		print_value(preter, value);
 
@@ -72,7 +73,104 @@ void call(interpreter_t *preter, uint32_t id, uint16_t params[MAX_PARAM_LEN]) {
 		while ((ch = fgetc(stdin)) != '\n') {
 			add_char2string(&preter->strings.array[str_id], ch);
 		}
+	} else if (func_id == 2) { // str()
+		value_t value = preter->values.array[params[0]];
+		uint64_t num = 0;
+		uint8_t is_negative = 0;
+		if (value.type == I32) {
+			num = abs(preter->rt_ints.i32s[value.ptr]);
+		} else if (value.type == I64) {
+			num = llabs(preter->rt_ints.i64s[value.ptr]);
+		}
+
+		uint16_t out_val; uint16_t str_id;
+		if (preter->ast.array[node.ptr].next_id == 0) {
+			out_val = new_value(&preter->values);
+			preter->ast.array[node.ptr].next_id = out_val;
+			preter->values.array[out_val].type = STRING;
+			str_id = new_string(&preter->strings);
+			preter->values.array[out_val].ptr = str_id;
+		} else {
+			out_val = preter->ast.array[node.ptr].next_id;
+			str_id = preter->values.array[out_val].ptr;
+			preter->strings.array[str_id].len = 0;
+		}
+
+		// 20 is the max number of digits for 2^64
+		char my_str[20];
+		uint8_t len = 0;
+		if (num <= 1) {
+			my_str[len] = digit2char(num % 10);
+			len = 1;
+		}
+		while (num > 1) {
+			if (len >= 20) {
+				return user_err("potential overflow; number is too large");
+			}
+			my_str[len] = digit2char(num % 10);
+			num /= 10;
+			len++;
+		}
+		my_str[len] = '\0';
+
+		if (is_negative) {
+			add_char2string(&preter->strings.array[str_id], '-');
+		}
+		for (uint8_t i = 0; i < len; i++) {
+			add_char2string(&preter->strings.array[str_id], my_str[len - i - 1]);
+		}
+	} else if (func_id == 3) { // int()
+		value_t value = preter->values.array[params[0]];
+		string_t str = preter->strings.array[value.ptr];
+
+		if (str.len >= 20) {
+			return user_err("potential overflow; number is too large");
+		}
+		uint8_t i = str.len;
+		int64_t num = 0;
+		uint8_t is_negative = 0;
+		if (str.array[str.len - 1] == '-') {
+			is_negative = 1;
+			i--;
+		}
+		while (i > 0) {
+			i--;
+			if (!is_num(str.array[i])) return user_err("string is not a number");
+			num += char2digit(str.array[i]) * pow(10, i);
+		}
+		if (is_negative) num *= -1;
+
+		uint16_t out_val_id;
+		if (preter->ast.array[node.ptr].next_id == 0) {
+			out_val_id = new_value(&preter->values);
+
+			if (num > INT32_MAX || num < INT32_MIN) {
+				preter->values.array[out_val_id].type = I32;
+				preter->values.array[out_val_id].ptr = new_i32(&preter->rt_ints);
+			} else {
+				preter->values.array[out_val_id].type = I64;
+				preter->values.array[out_val_id].ptr = new_i64(&preter->rt_ints);
+			}
+
+			preter->ast.array[node.ptr].next_id = out_val_id;
+		} else {
+			out_val_id = preter->ast.array[node.ptr].next_id;
+		}
+
+		value_t *out_val = &preter->values.array[out_val_id];
+
+		if ((num > INT32_MAX || num < INT32_MIN) && out_val->type == I32) {
+			delete_i32(&preter->rt_ints, out_val->ptr);
+			out_val->ptr = new_i64(&preter->rt_ints);
+		}
+
+		if (out_val->type == I32) {
+			preter->rt_ints.i32s[out_val->ptr] = num;
+		} else if (out_val->type == I64) {
+			preter->rt_ints.i64s[out_val->ptr] = num;
+		}
 	}
+	return 1;
 }
 
 uint16_t node_value(interpreter_t *preter, uint32_t id) {
@@ -186,7 +284,7 @@ uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 		// call and store value in block -> ptr
 		uint16_t params[MAX_PARAM_LEN];
 		params[0] = node_value(preter, temp_node.next_id);
-		call(preter, id, params);
+		if (!call(preter, id, params)) return 0;
 	}
 
 	// adding a string is ok
@@ -260,10 +358,15 @@ uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 				int32_t i64_1 = rt_ints->i64s[parent_value->ptr];
 				int32_t i64_2 = rt_ints->i64s[value.ptr];
 				if (i64_1 > INT64_MAX - i64_2) {
-					return user_err("integer is too large");
+					return user_err("integer overflow; too small");
 				}
 				rt_ints->i64s[parent_value->ptr] += rt_ints->i64s[value.ptr];
 			} else if (value.type == I32 && parent_value->type == I64) {
+				int32_t i64 = rt_ints->i64s[parent_value->ptr];
+				int32_t i32 = rt_ints->i64s[value.ptr];
+				if (i64 > INT64_MAX - i32) {
+					return user_err("integer overflow; too small");
+				}
 				rt_ints->i64s[parent_value->ptr] += rt_ints->i32s[value.ptr];
 			} else if (value.type == I64 && parent_value->type == I32) {
 				delete_i32(rt_ints, parent_value->ptr);
@@ -271,7 +374,7 @@ uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 				int32_t i64_1 = rt_ints->i64s[parent_value->ptr];
 				int32_t i64_2 = rt_ints->i64s[value.ptr];
 				if (i64_1 > INT64_MAX - i64_2) {
-					return user_err("integer is too large");
+					return user_err("integer overflow; too small");
 				}
 				rt_ints->i64s[parent_value->ptr] += rt_ints->i64s[value.ptr];
 			}
@@ -296,10 +399,15 @@ uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 				int32_t i64_1 = rt_ints->i64s[parent_value->ptr];
 				int32_t i64_2 = rt_ints->i64s[value.ptr];
 				if (i64_1 < INT64_MIN + i64_2) {
-					return user_err("integer is too large");
+					return user_err("integer overflow; too small");
 				}
 				rt_ints->i64s[parent_value->ptr] -= rt_ints->i64s[value.ptr];
 			} else if (value.type == I32 && parent_value->type == I64) {
+				int32_t i64 = rt_ints->i64s[parent_value->ptr];
+				int32_t i32 = rt_ints->i32s[value.ptr];
+				if (i64 < INT64_MIN + i32) {
+					return user_err("integer overflow; too small");
+				}
 				rt_ints->i64s[parent_value->ptr] -= rt_ints->i32s[value.ptr];
 			} else if (value.type == I64 && parent_value->type == I32) {
 				delete_i32(rt_ints, parent_value->ptr);
@@ -398,6 +506,25 @@ void add2queue(queue_t *queue, uint32_t id) {
 	// take care of max queue issues at lexer-time
 }
 
+uint8_t activate_queue(interpreter_t *preter, queue_t *queue) {
+	// assume its 1 because it would be when called
+	uint8_t i = 1;
+
+	while (i > 0 && queue->len > 0) {
+		if (queue->len > 0) {
+			queue->len--;
+			uint32_t node_id = queue->array[queue->len];
+			if (is_activate_state(preter->ast.array[node_id].state)) {
+				i++;
+			}
+			if (!activate_node(preter, node_id)) return 0;
+		}
+
+		i--;
+	}
+	return 1;
+}
+
 uint8_t eval_exp(interpreter_t *preter, uint32_t target_id, uint32_t *end_id) {
 	ast_t ast = preter->ast;
 	uint32_t id = target_id;
@@ -405,7 +532,7 @@ uint8_t eval_exp(interpreter_t *preter, uint32_t target_id, uint32_t *end_id) {
 	queue_t queue;
 	queue.len = 0;
 
-	while (temp_node.state != NS_END && temp_node.state != NS_END_CALL) {
+	while (temp_node.state != NS_END) {
 		id = temp_node.next_id;
 		temp_node = ast.array[id];
 
@@ -413,19 +540,8 @@ uint8_t eval_exp(interpreter_t *preter, uint32_t target_id, uint32_t *end_id) {
 			add2queue(&queue, id);
 		} else {
 			if (!activate_node(preter, id)) return 0;
-			if (temp_node.state == NS_BACK) {
-				if (queue.len > 0) {
-					queue.len--;
-					uint32_t node_id = queue.array[queue.len];
-					if (!activate_node(preter, node_id)) return 0;
-				}
-			}
-			if (temp_node.state == NS_END_CALL || temp_node.state == NS_END) {
-				while (queue.len > 0) {
-					queue.len--;
-					uint32_t node_id = queue.array[queue.len];
-					if (!activate_node(preter, node_id)) return 0;
-				}
+			if (temp_node.state == NS_BACK || temp_node.state == NS_END_CALL || temp_node.state == NS_END) {
+				activate_queue(preter, &queue);
 			}
 		}
 
@@ -482,7 +598,7 @@ uint8_t run(interpreter_t *preter) {
 				if (!eval_exp(preter, id, &end_id)) return 0;
 				params[0] = node_value(preter, ast.array[id].next_id);
 
-				call(preter, id, params);
+				if (!call(preter, id, params)) return 0;
 
 				id = ast.array[end_id].next_id;
 				break;
