@@ -177,7 +177,7 @@ uint16_t node_value(interpreter_t *preter, uint32_t id) {
 	node_t node = preter->ast.array[id];
 	switch (node.type) {
 		case REFERENCE: {
-			return preter->vars.array[preter->ast.array[node.ptr].ptr].ptr;
+			return preter->vars.array[node.ptr].ptr;
 		}
 		case VALUE: {
 			return node.ptr;
@@ -226,8 +226,7 @@ void copy_value(interpreter_t *preter, uint16_t out_id, uint16_t in_id) {
 			case UNDEFINED:
 				break;
 			case STRING: {
-				uint32_t str_id = new_string(strings);
-				out->ptr = str_id;
+				out->ptr = new_string(strings);
 				break;
 			}
 			case I32: {
@@ -245,6 +244,7 @@ void copy_value(interpreter_t *preter, uint16_t out_id, uint16_t in_id) {
 				break;
 		}
 	}
+
 	switch (out->type) {
 		case UNDEFINED:
 			break;
@@ -607,15 +607,11 @@ uint8_t run(interpreter_t *preter) {
 				var_t *var = &vars.array[temp_node->ptr];
 				uint32_t end_id;
 
-				node_t next = ast.array[temp_node->next_id];
-				if (next.type == REFERENCE) {
-					copy_value(preter, ast.array[next.ptr].next_id, vars.array[ast.array[next.ptr].ptr].ptr);
-					var->ptr = ast.array[next.ptr].next_id;
-					end_id = temp_node->next_id;
-				} else {
-					eval_exp(preter, id, &end_id);
-					var->ptr = node_value(preter, temp_node->next_id);
-				}
+				uint32_t block_id = temp_node->next_id;
+				node_t block = ast.array[block_id];
+				eval_exp(preter, block_id, &end_id);
+				copy_value(preter, block.ptr, node_value(preter, block.next_id));
+				var->ptr = block.ptr;
 
 				id = ast.array[end_id].next_id;
 				break;

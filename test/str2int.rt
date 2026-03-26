@@ -1,0 +1,4 @@
+my_str = ask("enter a number: ")
+my_int = int(my_str)
+
+print(my_int + 1)

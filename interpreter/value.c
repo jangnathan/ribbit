@@ -3,8 +3,9 @@
 #include <math.h>
 #include <stdlib.h>
 
+// set len to 1 because 0 is reserved for
 void values_init(values_t *values) {
-	values->len = 1;
+	values->len = 0;
 	values->size = 4;
 	values->array = malloc(sizeof(value_t) * values->size);
 }

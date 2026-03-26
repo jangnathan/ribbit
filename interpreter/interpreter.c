@@ -226,12 +226,7 @@ uint8_t build_ref_node(ctx_t *ctx) {
 	}
 
 	preter->ast.array[ctx->temp_id].type = REFERENCE;
-	uint32_t new_id = new_node(&preter->ast);
-	preter->ast.array[ctx->temp_id].ptr = new_id;
-	// next_id is to store temp , ptr is for reference
-	preter->ast.array[new_id].ptr = var_id;
-	preter->ast.array[new_id].type = BLOCK;
-	preter->ast.array[new_id].next_id = new_value(&preter->values);
+	preter->ast.array[ctx->temp_id].ptr = var_id;
 	return 1;
 }
 
@@ -284,8 +279,6 @@ uint8_t end_curly_braces(ctx_t *ctx) {
 	uint32_t top_id = ctx->temp_id;
 	while (!has_curly_braces(ast->array[top_id].type) && top_id != 0) {
 		top_id = ast->array[top_id].parent_id;
-		log_nodetype(ast->array[top_id].type);
-		printf("(%d)", top_id);
 	}
 	if (top_id == 0) return user_err("unexpected '}'");
 
@@ -339,6 +332,10 @@ uint8_t process(ctx_t *ctx, char ch) {
 					var_id = new_var(vars, ctx->lex);
 				}
 				ast->array[ctx->temp_id].ptr = var_id;
+				ctx->temp_id = append_child(ast, ctx->temp_id);
+
+				ast->array[ctx->temp_id].type = BLOCK;
+				ast->array[ctx->temp_id].ptr = new_value(values);
 				ctx->temp_id = append_child(ast, ctx->temp_id);
 				ctx->status = ST_NONE;
 				goto st_none;

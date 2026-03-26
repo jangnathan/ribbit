@@ -1,6 +1,7 @@
 #include "string.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 void strings_init(strings_t *strings) {
 	strings->q_len = 0;
@@ -10,12 +11,6 @@ void strings_init(strings_t *strings) {
 }
 
 uint16_t new_string(strings_t *strings) {
-	if (strings->len >= strings->size) {
-		strings->size *= 2;
-		string_t *temp_ptr = realloc(strings->array, sizeof(string_t) * strings->size);
-		strings->array = temp_ptr;
-	}
-
 	uint16_t id;
 	if (strings->q_len > 0) {
 		strings->q_len--;
@@ -24,6 +19,13 @@ uint16_t new_string(strings_t *strings) {
 		id = strings->len;
 		strings->len++;
 	}
+
+	if (strings->len >= strings->size) {
+		strings->size *= 2;
+		string_t *temp_ptr = realloc(strings->array, sizeof(string_t) * strings->size);
+		strings->array = temp_ptr;
+	}
+
 	string_t *str = &strings->array[id];
 
 	str->len = 0;
@@ -51,12 +53,13 @@ void add_strings_w_id(strings_t *str, uint32_t target_id, uint32_t model_id) {
 	string_t *target = &str->array[target_id];
 	string_t model = str->array[model_id];
 
-	if (model.len + target->len > model.size) {
+	if (model.len + target->len >= target->size) {
 		if (model.size >= target->size) {
 			target->size = model.size * 2;
 		} else {
 			target->size *= 2;
 		}
+		
 		target->array = realloc(target->array, sizeof(char) * target->size);
 	}
 

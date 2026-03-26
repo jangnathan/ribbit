@@ -16,7 +16,7 @@ uint16_t new_var(vars_t *vars, char *name) {
 	return vars->len - 1;
 }
 void vars_init(vars_t *vars) {
-	vars->len = 0;
+	vars->len = 1;
 	vars->size = 8;
 	vars->array = malloc(sizeof(var_t) * vars->size);
 }
