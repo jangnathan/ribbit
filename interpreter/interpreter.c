@@ -23,6 +23,8 @@ void interpreter_init(interpreter_t *preter) {
 	preter->ast.size = 64;
 	preter->ast.array = malloc(sizeof(node_t) * preter->ast.size);	
 
+	preter->exit = 0;
+
 	vars_init(&preter->vars);
 	values_init(&preter->values);
 	funcs_init(&preter->funcs);
@@ -474,6 +476,8 @@ uint8_t process(ctx_t *ctx, char ch) {
 					func_t func = funcs->array[func_id];
 					if (func.n_param > 0) {
 						ctx->temp_id = append_child(ast, ctx->temp_id);
+					} else {
+						ctx->status = ST_END;
 					}
 				} else {
 					// could be just a variable

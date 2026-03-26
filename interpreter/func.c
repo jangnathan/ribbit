@@ -40,6 +40,9 @@ void funcs_init(funcs_t *funcs) {
 	// turns str into int, naming collisions with keyword made it int_func
 	func_t *int_func = &funcs->array[new_func(funcs, "int")];
 	func_add_param(int_func, "str");
+
+	// no params
+	func_t *exit = &funcs->array[new_func(funcs, "exit")];
 }
 
 int32_t get_func(funcs_t *funcs, char *name) {

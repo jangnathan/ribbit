@@ -84,3 +84,20 @@ void copy_string_w_id(strings_t *str, uint32_t target_id, uint32_t model_id) {
 	}
 	target->len = model.len;
 }
+
+uint8_t equal_string_w_id(strings_t *str, uint32_t left_id, uint32_t right_id) {
+	string_t left = str->array[left_id];
+	string_t right = str->array[right_id];
+
+	if (left.len != right.len) {
+		return 0;
+	}
+
+	uint16_t i = 0;
+	while (i < left.len) {
+		if (left.array[i] != right.array[i]) return 0;
+		i++;
+	}
+
+	return 1;
+}

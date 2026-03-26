@@ -22,3 +22,4 @@ void delete_string(strings_t *strings, uint32_t id);
 void add_char2string(string_t *str, char ch);
 void add_strings_w_id(strings_t *str, uint32_t target_id, uint32_t model_id);
 void copy_string_w_id(strings_t *str, uint32_t target_id, uint32_t model_id);
+uint8_t equal_string_w_id(strings_t *str, uint32_t left_id, uint32_t right_id);

@@ -17,6 +17,8 @@ typedef struct {
 	values_t values;
 	strings_t strings;
 	rt_ints_t rt_ints;
+
+	uint8_t exit;
 } interpreter_t;
 
 enum STATUS {

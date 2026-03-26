@@ -169,6 +169,8 @@ uint8_t call(interpreter_t *preter, uint32_t id, uint16_t params[MAX_PARAM_LEN])
 		} else if (out_val->type == I64) {
 			preter->rt_ints.i64s[out_val->ptr] = num;
 		}
+	} else if (func_id == 4) {
+		preter->exit = 1;
 	}
 	return 1;
 }
@@ -478,15 +480,29 @@ uint8_t activate_node(interpreter_t *preter, uint32_t id) {
 			break;
 		}
 		case EQUAL: {
-			parent_value->ptr = numbers_equal(rt_ints, val_first.type, val_first.ptr, value.type, value.ptr);
+			if (value.type == STRING && val_first.type == STRING) {
+				parent_value->ptr = equal_string_w_id(strings, val_first.ptr, value.ptr);
+			} else if (is_num_type(val_first.type) && is_num_type(value.type)) {
+				parent_value->ptr = numbers_equal(rt_ints, val_first.type, val_first.ptr, value.type, value.ptr);
+			} else {
+				return user_err("Cannot compare these types");
+			}
 			break;
 		}
 		case LESS: {
-			parent_value->ptr = numbers_less(rt_ints, val_first.type, val_first.ptr, value.type, value.ptr);
+			if (is_num_type(val_first.type) && is_num_type(value.type)) {
+				parent_value->ptr = numbers_less(rt_ints, val_first.type, val_first.ptr, value.type, value.ptr);
+			} else {
+				return user_err("Cannot add compare these types");
+			}
 			break;
 		}
 		case MORE: {
-			parent_value->ptr = numbers_less(rt_ints, val_first.type, val_first.ptr, value.type, value.ptr);
+			if (is_num_type(val_first.type) && is_num_type(value.type)) {
+				parent_value->ptr = numbers_less(rt_ints, val_first.type, val_first.ptr, value.type, value.ptr);
+			} else {
+				return user_err("Cannot add compare these types");
+			}
 			break;
 		}
 		default: {
@@ -568,7 +584,7 @@ uint8_t run(interpreter_t *preter) {
 	printf("-- RUNTIME --\n");
 	if (ast.len == 0) return 1;
 
-	while (temp_node->type != END) {
+	while (temp_node->type != END && preter->exit == 0) {
 		switch (temp_node->type) {
 			case BLOCK: {
 				if (ast.array[temp_node->parent_id].type == FOR_LOOP && ast.array[temp_node->parent_id].next_id == id) {

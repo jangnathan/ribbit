@@ -3,7 +3,6 @@
 #include <math.h>
 #include <stdlib.h>
 
-// set len to 1 because 0 is reserved for
 void values_init(values_t *values) {
 	values->len = 0;
 	values->size = 4;
@@ -95,4 +94,15 @@ uint8_t numbers_less(rt_ints_t *rt_ints, enum DATATYPE l_type, uint16_t l_ptr, e
 		return i32_less_bool(rt_ints, r_ptr, l_ptr);
 	}
 	return 0;
+}
+
+uint8_t is_num_type(enum DATATYPE type) {
+	switch (type) {
+		case I32:
+		case I64:
+		case FLOAT:
+			return 1;
+		default:
+			return 0;
+	}
 }

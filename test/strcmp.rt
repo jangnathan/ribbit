@@ -1,0 +1,9 @@
+input = ask("enter password
+(hint: it is the name of a tropical fruit with a crown, and bright yellow flesh): ")
+
+if input == "pineapple" {
+print("your in!")
+exit()
+}
+
+print("wrong password")
