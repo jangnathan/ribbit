@@ -1,6 +1,7 @@
 ## ribbit
 This is a interpreted scripting language using AST
-It is pure C and uses a custom build system called [ssteme](github.com/jangnathan/ssteme)
+Built with C and uses a custom build system called [ssteme](github.com/jangnathan/ssteme)
+apart from the wasm demo [here](jangnathan.github.io/ribbit/demo)
 
 currently supports these features:
 
