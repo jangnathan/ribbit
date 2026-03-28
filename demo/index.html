@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<title>Ribbit (web assembly)</title>
+	</head>
+<style>
+.container {
+	display: flex;
+	flex-direction: column;
+	padding: 0 2rem 0 2rem;
+}
+
+.run {
+	font-size: 1rem;
+	padding: 1rem
+}
+</style>
+	<body>
+		<h1>Ribbit (web assembly)</h1>
+		<p>The ask() function does not work properly in browser, it was for the cli</p>
+		<div class="container">
+			<textarea rows="20" cols="50" type="text" id="input" placeholder="write some code"></textarea>
+			<button class="run" id="run-button">run</button>
+			<textarea id="output" rows="20" cols="50" readonly></textarea>
+		</div>
+
+		<script>
+			const el = document.getElementById('output');
+
+			var Module = {
+				print: (text) => el.value += text + "\n",
+				onRuntimeInitialized: function() {
+					console.log("WebAssembly is ready to go!");
+				}
+			};
+		</script>
+
+		<script src="main.js"></script>
+
+		<script>
+			let runButton = document.getElementById("run-button");
+			let input = document.getElementById('input')
+			input.value =
+				`for i=0,i<10,i=i+1 {
+print("hello world!" + str(i))
+}`
+
+			function runCode() {
+				el.value = ""
+				Module.ccall('process_source', null, ['string'], [input.value]);
+			}
+
+			runButton.addEventListener("click", runCode);
+		</script>
+	</body>
+</html>

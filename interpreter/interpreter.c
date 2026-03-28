@@ -424,6 +424,7 @@ uint8_t process(ctx_t *ctx, char ch) {
 			lex:
 				ctx->lex[ctx->i] = ch;
 				if (ctx->i > MAX_LEX_LEN) {
+					printf("max lex characters: %d > %d; ", MAX_LEX_LEN, ctx->i);
 					return user_err("lex is too long");
 				}
 				ctx->i++;
@@ -679,6 +680,23 @@ uint8_t process(ctx_t *ctx, char ch) {
 	printf("%c", ch);
 	fflush(stdout);
 #endif
+	return 1;
+}
+
+uint8_t load_string(ctx_t *ctx, char *str) {
+	uint32_t i = 0;
+	interpreter_t *preter = ctx->preter;
+
+	while (i < UINT32_MAX && str[i] != '\0') {
+		if (!process(ctx, str[i])) return 0;
+		i++;
+	}
+	if (!process(ctx, '\0')) return 0 ;
+	if (ctx->status != ST_NONE ||
+		preter->ast.array[ctx->temp_id].type != END) {
+		return user_err("unfinished statement");;
+	}
+
 	return 1;
 }
 
